@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "name": "辦公室基礎好習慣 (Basic Office Habits)",
+      "order": 0,
+      "id": "group-1753869698067"
+    },
+    {
+      "name": "數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
+      "order": 1,
+      "id": "group-1753869716027"
+    },
+    {
+      "name": "機敏資料與高風險工具 (Sensitive Data & High-Risk Tools)",
+      "order": 2,
+      "id": "group-1753874367218"
+    },
+    {
+      "name": "智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
+      "order": 3,
+      "id": "group-1753874407275"
+    }
+  ]
+}
