@@ -2,6 +2,12 @@
 
 echo Starting all services for Confidential Expert AI...
 
+REM --- 執行資料同步 ---
+echo 正在同步最新scenarios.json到ChromaDB...
+cd ai-service && venv\Scripts\python ingest.py
+cd ..
+echo 資料同步完成！
+
 REM --- Backend Server ---
 echo Starting Backend Server (app-server) on port 3004...
 start "Backend" cmd /k "cd app-server && npm run dev"

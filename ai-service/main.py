@@ -74,26 +74,152 @@ def ask(request: AskRequest):
                 n_results=1,
                 where={"category": "meta"}
             )
+            print(f"元問題查詢結果: {results}")
         elif is_category_query:
-            # 對於類別查詢，使用向量查詢
-            response = ollama.embeddings(model='mxbai-embed-large', prompt=question)
-            embedding = response["embedding"]
-            
-            # 使用向量搜索，確保與資料庫格式相容
-            results = collection.query(
-                query_embeddings=[embedding],
-                n_results=3
-            )
+            # 對於類別查詢，使用混合檢索策略
+            try:
+                # 1. 先用向量搜索
+                response = ollama.embeddings(model='mxbai-embed-large', prompt=question)
+                embedding = response["embedding"]
+                
+                vector_results = collection.query(
+                    query_embeddings=[embedding],
+                    n_results=3,
+                    include=["documents", "metadatas", "distances"]
+                )
+                
+                # 2. 再用關鍵字搜索
+                keyword_results = collection.query(
+                    query_texts=[question],
+                    n_results=3,
+                    include=["documents", "metadatas", "distances"]
+                )
+                
+                # 3. 合併結果並去重
+                combined_ids = []
+                combined_docs = []
+                combined_metadatas = []
+                combined_distances = []
+                
+                # 處理向量結果
+                if vector_results['ids'] and len(vector_results['ids'][0]) > 0:
+                    for i, doc_id in enumerate(vector_results['ids'][0]):
+                        if doc_id not in combined_ids:
+                            combined_ids.append(doc_id)
+                            combined_docs.append(vector_results['documents'][0][i])
+                            combined_metadatas.append(vector_results['metadatas'][0][i])
+                            combined_distances.append(vector_results['distances'][0][i])
+                
+                # 處理關鍵字結果
+                if keyword_results['ids'] and len(keyword_results['ids'][0]) > 0:
+                    for i, doc_id in enumerate(keyword_results['ids'][0]):
+                        if doc_id not in combined_ids:
+                            combined_ids.append(doc_id)
+                            combined_docs.append(keyword_results['documents'][0][i])
+                            combined_metadatas.append(keyword_results['metadatas'][0][i])
+                            combined_distances.append(keyword_results['distances'][0][i])
+                
+                # 組合最終結果
+                results = {
+                    'ids': [combined_ids],
+                    'documents': [combined_docs],
+                    'metadatas': [combined_metadatas],
+                    'distances': [combined_distances]
+                }
+                
+                print(f"類別查詢結果數量 (混合檢索): {len(results['ids'][0]) if results['ids'] else 0}")
+            except Exception as e:
+                print(f"混合檢索失敗: {str(e)}，回退到標準向量檢索")
+                response = ollama.embeddings(model='mxbai-embed-large', prompt=question)
+                embedding = response["embedding"]
+                
+                results = collection.query(
+                    query_embeddings=[embedding],
+                    n_results=3,
+                    include=["documents", "metadatas", "distances"]
+                )
         else:
-            # 一般問題使用向量搜索
-            response = ollama.embeddings(model='mxbai-embed-large', prompt=question)
-            embedding = response["embedding"]
-
-            # Query ChromaDB for relevant scenarios
-            results = collection.query(
-                query_embeddings=[embedding],
-                n_results=3  # Fetch top 3 most relevant scenarios
-            )
+            # 一般問題使用混合檢索策略
+            try:
+                # 1. 先用向量搜索
+                response = ollama.embeddings(model='mxbai-embed-large', prompt=question)
+                embedding = response["embedding"]
+                
+                vector_results = collection.query(
+                    query_embeddings=[embedding],
+                    n_results=5,
+                    include=["documents", "metadatas", "distances"]
+                )
+                
+                # 2. 再用關鍵字搜索
+                keyword_results = collection.query(
+                    query_texts=[question],
+                    n_results=5,
+                    include=["documents", "metadatas", "distances"]
+                )
+                
+                # 3. 合併結果並去重
+                combined_ids = []
+                combined_docs = []
+                combined_metadatas = []
+                combined_distances = []
+                
+                # 處理向量結果
+                if vector_results['ids'] and len(vector_results['ids'][0]) > 0:
+                    for i, doc_id in enumerate(vector_results['ids'][0]):
+                        if doc_id not in combined_ids:
+                            combined_ids.append(doc_id)
+                            combined_docs.append(vector_results['documents'][0][i])
+                            combined_metadatas.append(vector_results['metadatas'][0][i])
+                            combined_distances.append(vector_results['distances'][0][i])
+                
+                # 處理關鍵字結果
+                if keyword_results['ids'] and len(keyword_results['ids'][0]) > 0:
+                    for i, doc_id in enumerate(keyword_results['ids'][0]):
+                        if doc_id not in combined_ids:
+                            combined_ids.append(doc_id)
+                            combined_docs.append(keyword_results['documents'][0][i])
+                            combined_metadatas.append(keyword_results['metadatas'][0][i])
+                            combined_distances.append(keyword_results['distances'][0][i])
+                
+                # 組合最終結果
+                results = {
+                    'ids': [combined_ids],
+                    'documents': [combined_docs],
+                    'metadatas': [combined_metadatas],
+                    'distances': [combined_distances]
+                }
+                
+                print(f"一般查詢結果數量 (混合檢索): {len(results['ids'][0]) if results['ids'] else 0}")
+            except Exception as e:
+                print(f"混合檢索失敗: {str(e)}，回退到標準向量檢索")
+                response = ollama.embeddings(model='mxbai-embed-large', prompt=question)
+                embedding = response["embedding"]
+                
+                results = collection.query(
+                    query_embeddings=[embedding],
+                    n_results=5,
+                    include=["documents", "metadatas", "distances"]
+                )
+            print(f"一般問題查詢結果數量: {len(results['ids'][0]) if results['ids'] else 0}")
+            
+            # 印出查詢資訊以便調試
+            if results['ids'] and len(results['ids'][0]) > 0:
+                for i, (doc_id, distance) in enumerate(zip(results['ids'][0], results['distances'][0])):
+                    metadata = results['metadatas'][0][i] if i < len(results['metadatas'][0]) else {}
+                    title = metadata.get('title', '未知標題')
+                    print(f"  結果 {i+1}: {title} (距離: {distance:.4f})")
+            else:
+                print("  未找到任何結果")
+                
+            # 如果沒有找到結果，嘗試關鍵字直接搜索
+            if not results['documents'] or not results['documents'][0]:
+                print("嘗試使用文本關鍵字搜索")
+                results = collection.query(
+                    query_texts=[question],
+                    n_results=3,
+                    include=["documents", "metadatas", "distances"]
+                )
     except Exception as e:
         print(f"查詢過程中發生錯誤: {str(e)}")
         return {"answer": "系統處理您的問題時遇到了技術問題，請稍後再試。", "sources": [], "session_id": session_id}
@@ -105,11 +231,18 @@ def ask(request: AskRequest):
     # Construct the prompt for the chat model
     context = "\n".join([f"- {doc}" for doc in results['documents'][0]])
     
-    # 系統提示 - 根據 AI Improved Plan 調整
-    system_prompt = """請根據所提供的資料，用不超過五句話簡潔地回答問題。
-請只使用提供的「情境資料」來回答問題。如果資訊不足，請直接回答「根據我現有的資料，無法回答這個問題」，不要使用你自己的知識。
-答案應當保持客觀、準確，並直接引用提供的資料來源。
-請用繁體中文回答。"""
+    # 增強系統提示設計
+    system_prompt = """你是ASUS的資安助手，專門回答資安相關問題。
+
+請遵循以下指示：
+1. 僅使用提供的「情境資料」來回答問題，不要使用自己的知識或猜測
+2. 如果在資料中能找到明確答案，請準確簡潔地回答
+3. 如果問題是關於印表機、機密資料、文件處理等，特別注意找出相關政策與處理方式
+4. 如果資訊不足，請直接回答「根據我現有的資料，無法回答這個問題」
+5. 回答應保持客觀、準確，並以3-5句話為宜
+6. 請用繁體中文回答
+
+記住：精確查找與問題最相關的資訊，不要過度延伸解讀，也不要提供資料中沒有的內容。"""
     
     # 使用者提示
     user_prompt = f"""情境資料：
@@ -141,13 +274,20 @@ def ask(request: AskRequest):
         'content': user_prompt,
     })
     
-    # Generate the answer using the chat model - 調整生成參數
+    # 生成答案時增加思考步驟，改進參數設定
+    messages.append({
+        'role': 'system',
+        'content': "在回答前，請先分析問題並找出與問題最相關的內容。如果問題是關於印表機、機密資料或文件處理，請特別關注相關規範與處理方式。"
+    })
+    
     chat_response = ollama.chat(
         model='qwen2',
         messages=messages,
         options={
-            'temperature': 0.2,  # 降低溫度以提高確定性
-            'num_predict': 200   # 限制回答長度
+            'temperature': 0.1,  # 進一步降低溫度以提高確定性
+            'num_predict': 300,   # 適度增加長度限制以確保完整回答
+            'top_p': 0.8,        # 控制生成文本的多樣性
+            'top_k': 30          # 限制候選詞彙數量
         }
     )
 

@@ -1,62 +1,122 @@
 # Confidential Expert AI
+_版本: 2.0.0 | 最後更新: 2025-08-04_
 
-## 1. 專案目標
+## 1. 專案總覽
 
-本專案旨在建立一個全新的、獨立的**一站式資安顧問平台**。此平台整合了**智慧問答**與**結構化知識庫**兩種模式，旨在為設計師提供全面、易用的資訊安全指引。
+本專案旨在建立一個全新的、獨立的**一站式資安顧問平台**。此平台整合了**智慧問答**與**結構化知識庫**兩種模式，為設計師提供全面、易用的資訊安全指引。
 
-平台的核心功能包含：
+### 1.1 核心功能
 
-1.  **智慧問答助理 (AI-Powered Q&A):** 利用本地部署的大型語言模型 (LLM) 與 RAG 技術，讓使用者能以自然語言提問，並獲得針對其具體情境的精準回答。
-2.  **情境式知識庫 (Scenario-Based Knowledge Base):** 提供一個結構清晰、分類明確的卡片式瀏覽介面。使用者可以系統性地探索不同主題下的資安情境與最佳實踐，作為日常工作的參考手冊。
-3.  **後台管理系統 (Admin Panel):** 建立一個安全的後台，讓管理員可以輕鬆地新增、修改或刪除知識庫中的資安情境，確保資訊的即時性與準確性。
+1. **智慧問答助理 (AI-Powered Q&A):** 
+   - 利用本地部署的大型語言模型 (LLM) 與 RAG 技術
+   - 讓使用者能以自然語言提問，並獲得針對具體情境的精準回答
+   - 支援上下文記憶，提供連貫對話體驗
 
-最終目標是交付一個功能完整、資訊可靠、體驗流暢的資安顧問工具，使其成為設計團隊在資訊安全上的第一道智慧防線。
+2. **情境式知識庫 (Scenario-Based Knowledge Base):** 
+   - 提供結構清晰、分類明確的卡片式瀏覽介面
+   - 系統性地整理不同主題下的資安情境與最佳實踐
+   - 支援自訂分類與搜尋功能
 
-## 2. 技術架構
+3. **後台管理系統 (Admin Panel):** 
+   - 安全的管理介面，支援權限控管
+   - 輕鬆地新增、修改或刪除知識庫中的資安情境卡片
+   - 卡片群組管理與拖曳排序功能
 
-本專案將採用一個清晰、模組化的前後端分離架構，並新增一個專門處理 AI 任務的 Python 後端服務。
+## 2. 系統架構
 
-*   **前端 (Client):**
-    *   **框架:** React (TypeScript)
-    *   **職責:** 提供統一的使用者介面，包含：
-        *   AI 聊天問答視窗。
-        *   情境卡片分類瀏覽頁面。
-        *   後台管理頁面 (具備權限控管)。
+本專案採用模組化的前後端分離架構，並包含專門處理 AI 任務的 Python 後端服務。
 
-*   **後端 - 應用程式伺服器 (App Server):**
-    *   **框架:** Node.js (Express)
-    *   **職責:** 作為核心的應用程式後端，負責：
-        *   管理結構化的情境資料庫 (例如 `scenarios.json` 或 SQLite)。
-        *   提供對情境資料的 CRUD (Create, Read, Update, Delete) API。
-        *   處理使用者身份驗證與後台權限。
+```mermaid
+graph TD
+    User[使用者] --> Frontend[前端 - React]
+    Frontend --> AppServer[應用伺服器 - Node.js/Express]
+    Frontend --> AIService[AI服務 - Python/FastAPI]
+    AppServer --> JSONFiles[(JSON檔案存儲)]
+    AIService --> LLM[本地LLM - Ollama]
+    AIService --> VectorDB[(向量資料庫 - ChromaDB)]
+    AppServer --> VectorDB
+```
 
-*   **後端 - AI 服務 (AI Service):**
-    *   **框架:** Python (FastAPI)
-    *   **職責:** 處理所有 AI 相關的任務，是 RAG 流程的核心。
-        1.  接收前端的自然語言問題。
-        2.  呼叫 Ollama 將問題**向量化**。
-        3.  在 **ChromaDB** 向量資料庫中進行**語意搜尋**。
-        4.  組合 Prompt，呼叫 Ollama 的**本地 LLM** 生成答案。
-        5.  將最終答案回傳給前端。
+### 2.1 技術堆疊
 
-*   **本地 LLM 服務:**
-    *   **工具:** Ollama
-    *   **職責:** 負責運行和管理本地的大型語言模型 (LLM) 和嵌入模型 (Embedding Model)，並提供 API 接口供 AI 服務呼叫。
-    *   **預計模型:**
-        *   **LLM:** Gemma 或 Llama 3 (8B)
-        *   **Embedding Model:** mxbai-embed-large
+| 元件 | 技術選擇 | 主要職責 |
+|------|----------|----------|
+| 前端 | React + TypeScript | 提供使用者介面，包含問答、卡片瀏覽、後台管理 |
+| 應用伺服器 | Node.js + Express | 管理結構化資料，提供CRUD API，處理權限驗證 |
+| AI服務 | Python + FastAPI | 處理RAG流程，向量化查詢，生成回答 |
+| LLM服務 | Ollama | 運行本地語言模型與向量化模型 |
+| 向量資料庫 | ChromaDB | 儲存向量化知識，提供語意搜尋 |
 
-*   **向量資料庫 (Vector Database):**
-    *   **工具:** ChromaDB
-    *   **職責:** 儲存所有資安情境的向量化表示，並提供高效的語意搜尋能力。將以檔案形式直接整合在 AI 服務中。
+## 3. 快速開始
 
-## 3. 開發藍圖
+### 3.1 環境需求
 
-專案的開發將分為以下幾個主要階段：
+- Node.js v16+
+- Python 3.9+
+- Ollama (已安裝並運行)
+- 建議硬體配置: 16GB RAM, 支援CUDA的GPU (非必須但建議)
 
-1.  **環境建置與基礎設定:** 建立專案結構，並確保所有必要的工具 (如 Ollama) 都已安裝並可正常運作。
-2.  **核心後端建置 (App Server):** 優先建立 Node.js 後端，完成對情境資料的 CRUD API。
-3.  **核心前端建置 (Client):** 開發卡片式瀏覽介面與後台管理介面，並與 App Server 對接。
-4.  **AI 服務建置 (AI Service):** 開發 Python FastAPI 服務，並完成 RAG 流程的核心邏輯。
-5.  **AI 功能整合:** 在前端加入聊天介面，並與 AI Service 對接。
-6.  **測試與部署:** 進行端對端測試，並準備部署。
+### 3.2 安裝步驟
+
+1. **克隆專案:**
+   ```bash
+   git clone https://github.com/your-org/confidential-expert-ai.git
+   cd confidential-expert-ai
+   ```
+
+2. **安裝前端依賴:**
+   ```bash
+   npm install
+   ```
+
+3. **安裝AI服務依賴:**
+   ```bash
+   cd ai-service
+   pip install -r requirements.txt
+   cd ..
+   ```
+
+4. **設定環境變數:**
+   - 複製 `.env.example` 為 `.env` 並填入必要設置
+
+5. **啟動服務:**
+   ```bash
+   # 啟動應用伺服器
+   node app-server/index.js
+   
+   # 啟動AI服務
+   cd ai-service
+   python main.py
+   ```
+
+## 4. 文件導航
+
+更詳細的文件請參考:
+
+- [系統架構與數據結構](./System_Architecture.md) - 資料庫結構與系統模組詳解
+- [AI系統與RAG機制](./AI_System.md) - AI服務設計與RAG系統說明
+- [前端顯示與互動設計](./Frontend_Guide.md) - UI/UX設計與卡片顯示優化
+- [管理後台使用與開發指南](./Admin_Guide.md) - 管理介面功能與卡片管理
+
+## 5. 目前狀態與里程碑
+
+- [x] 基礎系統架構設計完成
+- [x] 卡片管理後台功能實現
+- [x] RAG系統基礎功能實現
+- [ ] AI回答品質優化
+- [ ] 卡片結構擴展與UI優化
+- [ ] RAG同步自動化實現
+- [ ] 最終整合與部署
+
+## 6. 貢獻指南
+
+若要貢獻代碼，請遵循以下流程:
+1. Fork 專案
+2. 建立功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交變更 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 開啟 Pull Request
+
+## 7. 許可證
+
+本專案採用 [MIT 許可證](LICENSE)。

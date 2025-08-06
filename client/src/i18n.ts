@@ -22,7 +22,7 @@ i18n
       },
       zh: {
         translation: {
-          "appTitle": "ADC資安看板",
+          "appTitle": "ADC資安小助手",
           "lastUpdated": "更新日期",
           "language": "語言",
           "chinese": "中文",

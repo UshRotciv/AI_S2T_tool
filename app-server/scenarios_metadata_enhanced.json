@@ -12,7 +12,22 @@
       ],
       "id": "scenario-new-001",
       "groupId": "group-habits",
-      "order": 0
+      "order": 0,
+      "enriched_metadata": {
+        "topic_tags": [
+          "資料安全",
+          "權限管理",
+          "資訊不洩漏"
+        ],
+        "risk_level": "高風險",
+        "target_audience": [
+          "IT人員",
+          "主管"
+        ],
+        "timing": [
+          "預防階段"
+        ]
+      }
     },
     {
       "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
@@ -25,7 +40,24 @@
         "避免在本人不在場時，請同事代為操作電腦。"
       ],
       "id": "scenario-new-002",
-      "groupId": "group-habits"
+      "groupId": "group-habits",
+      "enriched_metadata": {
+        "topic_tags": [
+          "密碼管理",
+          "社會工程",
+          "資安政策",
+          "ISO27001",
+          "資訊外洩"
+        ],
+        "risk_level": "高風險",
+        "target_audience": [
+          "一般員工",
+          "IT人員"
+        ],
+        "timing": [
+          "預防階段"
+        ]
+      }
     },
     {
       "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
@@ -39,7 +71,21 @@
       ],
       "id": "scenario-new-003",
       "groupId": "group-habits",
-      "order": 2
+      "order": 2,
+      "enriched_metadata": {
+        "topic_tags": [
+          "資安意識教育",
+          "社群媒體安全",
+          "資訊保護政策"
+        ],
+        "risk_level": "高風險",
+        "target_audience": [
+          "全體員工"
+        ],
+        "timing": [
+          "預防階段"
+        ]
+      }
     },
     {
       "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
@@ -52,7 +98,21 @@
         "維持專業態度，將家庭環境與工作場域做區隔。"
       ],
       "id": "scenario-new-004",
-      "groupId": "group-habits"
+      "groupId": "group-habits",
+      "enriched_metadata": {
+        "topic_tags": [
+          "居家辦公安全",
+          "資訊保密",
+          "資安風險管理"
+        ],
+        "risk_level": "高風險",
+        "target_audience": [
+          "全體員工"
+        ],
+        "timing": [
+          "事前準備"
+        ]
+      }
     },
     {
       "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
@@ -66,7 +126,21 @@
       ],
       "id": "scenario-new-005",
       "groupId": "group-digital",
-      "order": 4
+      "order": 4,
+      "enriched_metadata": {
+        "topic_tags": [
+          "文件分享安全",
+          "電子郵件安全",
+          "雲儲存工具比較"
+        ],
+        "risk_level": "中風險",
+        "target_audience": [
+          "全體員工"
+        ],
+        "timing": [
+          "預防階段"
+        ]
+      }
     },
     {
       "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
@@ -79,7 +153,22 @@
         "密碼本身也應符合強度要求，不易被猜測。"
       ],
       "id": "scenario-new-006",
-      "groupId": "group-digital"
+      "groupId": "group-digital",
+      "enriched_metadata": {
+        "topic_tags": [
+          "密碼管理",
+          "檔案傳遞安全",
+          "資安最佳實踐"
+        ],
+        "risk_level": "中風險",
+        "target_audience": [
+          "IT人員",
+          "全體員工"
+        ],
+        "timing": [
+          "預防階段"
+        ]
+      }
     },
     {
       "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
@@ -92,7 +181,23 @@
         "浮水印能有效嚇阻未經授權的轉發與濫用。"
       ],
       "id": "scenario-new-007",
-      "groupId": "group-digital"
+      "groupId": "group-digital",
+      "enriched_metadata": {
+        "topic_tags": [
+          "文件安全",
+          "浮水印技術",
+          "資安管理"
+        ],
+        "risk_level": "中風險",
+        "target_audience": [
+          "IT人員",
+          "全體員工"
+        ],
+        "timing": [
+          "預防階段",
+          "事後處理"
+        ]
+      }
     },
     {
       "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
@@ -105,7 +210,23 @@
         "公共場所只適合處理非核心機密的庶務。"
       ],
       "id": "scenario-new-008",
-      "groupId": "group-digital"
+      "groupId": "group-digital",
+      "enriched_metadata": {
+        "topic_tags": [
+          "公共Wi-Fi安全",
+          "VPN使用方法",
+          "网络安全意识"
+        ],
+        "risk_level": "中風險",
+        "target_audience": [
+          "一般員工",
+          "IT人員"
+        ],
+        "timing": [
+          "事前準備",
+          "日常操作"
+        ]
+      }
     },
     {
       "category": "Part C: 機敏資料與高風險工具 (Sensitive Data & High-Risk Tools)",
@@ -118,7 +239,22 @@
         "即使是去識別化的資料，也應避免上傳至未經核准的公開平台。"
       ],
       "id": "scenario-new-009",
-      "groupId": "group-tools"
+      "groupId": "group-tools",
+      "enriched_metadata": {
+        "topic_tags": [
+          "AI工具使用政策",
+          "公司認證平台",
+          "資料隱私與保護"
+        ],
+        "risk_level": "高風險",
+        "target_audience": [
+          "一般員工",
+          "IT人員"
+        ],
+        "timing": [
+          "預防階段"
+        ]
+      }
     },
     {
       "category": "Part C: 機敏資料與高風險工具 (Sensitive Data & High-Risk Tools)",
@@ -131,7 +267,21 @@
         "禁止使用私人的通訊軟體或雲端服務傳輸公務資料。"
       ],
       "id": "scenario-new-010",
-      "groupId": "group-tools"
+      "groupId": "group-tools",
+      "enriched_metadata": {
+        "topic_tags": [
+          "手機安全",
+          "會議記錄",
+          "雲端分享"
+        ],
+        "risk_level": "中風險",
+        "target_audience": [
+          "全體員工"
+        ],
+        "timing": [
+          "預防階段"
+        ]
+      }
     },
     {
       "category": "Part C: 機敏資料與高風險工具 (Sensitive Data & High-Risk Tools)",
@@ -145,7 +295,22 @@
       ],
       "id": "scenario-new-011",
       "groupId": "group-tools",
-      "order": 10
+      "order": 10,
+      "enriched_metadata": {
+        "topic_tags": [
+          "密碼管理",
+          "資安風險",
+          "程式開發安全"
+        ],
+        "risk_level": "高風險",
+        "target_audience": [
+          "IT人員",
+          "主管"
+        ],
+        "timing": [
+          "預防階段"
+        ]
+      }
     },
     {
       "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
@@ -158,7 +323,21 @@
         "保護公司智慧財產就是保護團隊共同努力的成果。"
       ],
       "id": "scenario-new-012",
-      "groupId": "group-ip"
+      "groupId": "group-ip",
+      "enriched_metadata": {
+        "topic_tags": [
+          "勞動合約",
+          "智慧財產權",
+          "線上作品集"
+        ],
+        "risk_level": "高風險",
+        "target_audience": [
+          "全體員工"
+        ],
+        "timing": [
+          "事後處理"
+        ]
+      }
     },
     {
       "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
@@ -171,7 +350,22 @@
         "不可將公司資產（即使是廢棄品）任意帶回家或當一般垃圾處理。"
       ],
       "id": "scenario-new-013",
-      "groupId": "group-ip"
+      "groupId": "group-ip",
+      "enriched_metadata": {
+        "topic_tags": [
+          "資安管理",
+          "公司資產處理",
+          "機密資訊保護"
+        ],
+        "risk_level": "高風險",
+        "target_audience": [
+          "全體員工",
+          "IT人員"
+        ],
+        "timing": [
+          "報廢流程前"
+        ]
+      }
     },
     {
       "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
@@ -184,7 +378,23 @@
         "數位足跡是釐清責任、保護自己的重要依據。"
       ],
       "id": "scenario-new-014",
-      "groupId": "group-ip"
+      "groupId": "group-ip",
+      "enriched_metadata": {
+        "topic_tags": [
+          "密碼管理",
+          "電子通訊安全",
+          "責任歸屬"
+        ],
+        "risk_level": "中風險",
+        "target_audience": [
+          "全體員工",
+          "IT人員"
+        ],
+        "timing": [
+          "預防階段",
+          "事件發生中"
+        ]
+      }
     }
   ]
 }
