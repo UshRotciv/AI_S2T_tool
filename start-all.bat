@@ -1,27 +1,46 @@
 @echo off
+chcp 65001 > nul
 
-echo Starting all services for Confidential Expert AI...
+:: Set the base directory to where the script is located
+set "BASE_DIR=%~dp0"
 
-REM --- 執行資料同步 ---
-echo 正在同步最新scenarios.json到ChromaDB...
-cd ai-service && venv\Scripts\python ingest.py
-cd ..
-echo 資料同步完成！
+:: Set window titles
+set "OLLAMA_TITLE=Ollama Service"
+set "AI_SERVICE_TITLE=AI Service (Python/FastAPI)"
+set "APP_SERVER_TITLE=App Server (Node.js)"
+set "CLIENT_TITLE=Client (React App)"
 
-REM --- Backend Server ---
-echo Starting Backend Server (app-server) on port 3004...
-start "Backend" cmd /k "cd app-server && npm run dev"
+echo =================================================================
+echo  Confidential Expert AI - Service Launcher
+echo =================================================================
+echo.
+echo Launching all 4 services in separate windows...
+echo Base directory: %BASE_DIR%
+echo.
 
-REM --- Frontend React App ---
-echo Starting Frontend React App (client) on port 3002...
-start "Frontend" cmd /k "cd client && npm start"
+:: --- 1. Launch Ollama Service ---
+echo [1/4] Launching Ollama Service...
+start "%OLLAMA_TITLE%" cmd /k "ollama serve"
 
-REM --- Ollama Service ---
-echo Starting Ollama Service...
-start "Ollama" cmd /k "ollama serve"
+:: --- 2. Launch AI Service ---
+echo [2/4] Launching AI Service (Python/FastAPI)...
+start "%AI_SERVICE_TITLE%" /D "%BASE_DIR%ai-service" cmd /k "echo Activating virtual environment & call .\venv\Scripts\activate && echo Installing Python dependencies... & pip install -r requirements.txt && echo Starting FastAPI server... & uvicorn main:app --host 0.0.0.0 --port 8001"
 
-REM --- AI Service ---
-echo Starting AI Service (ai-service) on port 8000...
-start "AI Service" cmd /k "cd ai-service && venv\Scripts\activate && uvicorn main:app --reload --port 8000"
+echo.
+echo Waiting for 10 seconds to allow AI service to initialize...
+timeout /t 10 /nobreak
+echo.
 
-echo All services are launching in separate windows.
+:: --- 3. Launch App Server ---
+echo [3/4] Launching App Server (Node.js)...
+start "%APP_SERVER_TITLE%" /D "%BASE_DIR%app-server" cmd /k "echo Installing Node.js dependencies... & npm install && echo Starting Node.js server... & node index.js"
+
+:: --- 4. Launch Client ---
+echo [4/4] Launching Client (React App)...
+start "%CLIENT_TITLE%" /D "%BASE_DIR%client" cmd /k "echo Installing Node.js dependencies... & npm install --legacy-peer-deps && echo Starting React development server... & npm run start"
+
+echo.
+echo =================================================================
+echo  All services have been launched.
+echo  Please check the 4 new windows for status and logs.
+echo =================================================================

@@ -234,7 +234,7 @@ app.delete('/api/groups/:id', (req, res) => {
 // --- AI Service Proxy ---
 app.post('/api/ask', async (req, res) => {
     try {
-        const response = await fetch('http://localhost:8000/api/ask', {
+                const response = await fetch('http://localhost:8001/api/ask', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(req.body),

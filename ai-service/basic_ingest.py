@@ -2,7 +2,34 @@
 基礎向量索引建立腳本 - 簡化版本
 用於還原 RAG 系統基本功能
 """
-import chromadb
+# 環境診斷代碼 - 自動修復chromadb導入問題
+import sys
+print(f"Python 路徑: {sys.executable}")
+print(f"Python 版本: {sys.version}")
+print(f"sys.path: {sys.path}")
+
+# 嘗試安裝缺失的套件
+try:
+    print("嘗試自動安裝chromadb...")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "chromadb", "--quiet"])
+    print("chromadb安裝成功!")
+except Exception as e:
+    print(f"自動安裝失敗: {e}")
+
+# 再次嘗試導入
+try:
+    import chromadb
+    print(f"chromadb 已成功導入!")
+except ImportError as e:
+    print(f"導入 chromadb 失敗: {e}")
+    print("\n檢查已安裝的套件:")
+    try:
+        result = subprocess.run([sys.executable, "-m", "pip", "list"], capture_output=True, text=True)
+        print(result.stdout)
+    except:
+        print("無法列出已安裝套件")
+    sys.exit(1)  # 如果仍然失敗，退出程序
 import json
 import ollama
 import uuid

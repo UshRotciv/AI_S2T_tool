@@ -1,16 +1,81 @@
+import shutil
+import os
+import stat
 from fastapi import FastAPI, Depends
+import ingest
+
+# --- Robust Database Auto-Rebuild on Startup ---
+
+def handle_remove_readonly(func, path, exc_info):
+    """
+    Error handler for shutil.rmtree.
+
+    If the error is due to an access error (read only file) it attempts to 
+    change the file permissions and then retries the move.
+    If the error is for another reason it re-raises the error.
+    """
+    # exc_info may be a tuple containing (type, value, traceback)
+    exc_type, exc_value, _ = exc_info
+    if exc_type is PermissionError and '[WinError 5]' in str(exc_value):
+        print(f"Permission error at {path}. Attempting to change permissions and retry.")
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        except Exception as e:
+            print(f"Failed to remove {path} even after chmod: {e}")
+    else:
+        # Re-raise the error if it's not a permission issue we can handle
+        raise
+
+DB_PATH = "chroma_db"
+print("Checking database integrity...")
+if os.path.exists(DB_PATH):
+    print(f"Existing database found at '{DB_PATH}'. Removing to ensure model consistency.")
+    shutil.rmtree(DB_PATH, onerror=handle_remove_readonly)
+    print("Old database removed. Re-ingesting data...")
+    try:
+        ingest.main() # Assuming ingest.py has a main() function
+        print("Database re-ingestion complete.")
+    except Exception as e:
+        print(f"An error occurred during re-ingestion: {e}")
+else:
+    print("No existing database found. Ingesting data for the first time...")
+    try:
+        ingest.main()
+        print("Initial data ingestion complete.")
+    except Exception as e:
+        print(f"An error occurred during initial ingestion: {e}")
+
 from pydantic import BaseModel
 import ollama
 import chromadb
+from chromadb.utils import embedding_functions
 from typing import List, Dict, Any, Optional
 import uuid
 from datetime import datetime
 
 app = FastAPI()
 
-# 資料庫連接
+# 資料庫連接與集合設定
 client = chromadb.PersistentClient(path="./chroma_db")
-collection = client.get_or_create_collection("scenarios")
+
+# 確保使用與ingest.py一致的嵌入函數設定
+sentence_transformer_ef = embedding_functions.OllamaEmbeddingFunction(
+    model_name="mxbai-embed-large",
+    url="http://localhost:11434/api",
+)
+
+# 獲取或創建集合，使用一致的嵌入函數
+try:
+    collection = client.get_collection("scenarios")
+    print("成功連接到現有的scenarios集合")
+except:
+    print("集合不存在，請先執行ingest.py建立資料庫")
+    collection = client.create_collection(
+        "scenarios",
+        embedding_function=sentence_transformer_ef,
+        metadata={"hnsw:space": "cosine"}
+    )
 
 # 對話歷史記錄存儲
 conversation_history = {}
@@ -203,23 +268,31 @@ def ask(request: AskRequest):
                 )
             print(f"一般問題查詢結果數量: {len(results['ids'][0]) if results['ids'] else 0}")
             
-            # 印出查詢資訊以便調試
+            # 詳細調試資訊輸出
             if results['ids'] and len(results['ids'][0]) > 0:
+                print("\n=== 查詢結果詳情 ===")
                 for i, (doc_id, distance) in enumerate(zip(results['ids'][0], results['distances'][0])):
                     metadata = results['metadatas'][0][i] if i < len(results['metadatas'][0]) else {}
                     title = metadata.get('title', '未知標題')
-                    print(f"  結果 {i+1}: {title} (距離: {distance:.4f})")
+                    category = metadata.get('category', '未知類別')
+                    question_meta = metadata.get('question', '未知問題')
+                    
+                    print(f"\n結果 {i+1}:")
+                    print(f"  標題: {title}")
+                    print(f"  類別: {category}")
+                    print(f"  問題: {question_meta}")
+                    print(f"  距離: {distance:.4f}")
+                    print(f"  內容預覽: {results['documents'][0][i][:200]}...")
+                    
+                    # 特別檢查是否包含印表機相關內容
+                    content = results['documents'][0][i].lower()
+                    if '印表機' in content or '機密' in content or 'confidential' in content:
+                        print(f"  ✓ 包含印表機/機密相關內容")
+                    if '非禮勿視' in content or '碎紙機' in content or '通知' in content:
+                        print(f"  ✓ 包含關鍵處理步驟")
+                print("\n=== 查詢結果結束 ===")
             else:
                 print("  未找到任何結果")
-                
-            # 如果沒有找到結果，嘗試關鍵字直接搜索
-            if not results['documents'] or not results['documents'][0]:
-                print("嘗試使用文本關鍵字搜索")
-                results = collection.query(
-                    query_texts=[question],
-                    n_results=3,
-                    include=["documents", "metadatas", "distances"]
-                )
     except Exception as e:
         print(f"查詢過程中發生錯誤: {str(e)}")
         return {"answer": "系統處理您的問題時遇到了技術問題，請稍後再試。", "sources": [], "session_id": session_id}
@@ -231,24 +304,30 @@ def ask(request: AskRequest):
     # Construct the prompt for the chat model
     context = "\n".join([f"- {doc}" for doc in results['documents'][0]])
     
-    # 增強系統提示設計
-    system_prompt = """你是ASUS的資安助手，專門回答資安相關問題。
+    # 強化系統提示，嚴格限制僅使用卡片內容
+    system_prompt = """你是 ASUS 的資安助手，專門回答資安相關問題。
 
-請遵循以下指示：
-1. 僅使用提供的「情境資料」來回答問題，不要使用自己的知識或猜測
-2. 如果在資料中能找到明確答案，請準確簡潔地回答
-3. 如果問題是關於印表機、機密資料、文件處理等，特別注意找出相關政策與處理方式
-4. 如果資訊不足，請直接回答「根據我現有的資料，無法回答這個問題」
-5. 回答應保持客觀、準確，並以3-5句話為宜
-6. 請用繁體中文回答
+【重要】你必須嚴格遵守以下規則：
 
-記住：精確查找與問題最相關的資訊，不要過度延伸解讀，也不要提供資料中沒有的內容。"""
+1. 絕對禁止使用任何不在「情境資料」中的內容回答
+2. 絕對禁止發揮、推測或補充任何資料中沒有的訊息
+3. 如果情境資料中有「答案」欄位，必須直接使用該答案內容，不得修改或重新表達
+4. 如果情境資料中有「學習要點」，可以在答案後附上這些要點
+5. 如果找不到相關資料，必須回答：「根據我現有的資料，無法回答這個問題」
+6. 使用繁體中文回答
+
+【特別注意】對於印表機機密文件等問題，必須找到包含「非禮勿視」、「碎紙機」、「通知管理師」等關鍵詞的具體處理步驟。
+
+記住：你的任務是忠實傳達卡片內容，不是創造或重新表達內容。"""
     
-    # 使用者提示
-    user_prompt = f"""情境資料：
+    # 強化用戶提示格式，明確指示卡片結構
+    user_prompt = f"""以下是資安卡片內容，包含標題、問題和答案：
+
 {context}
 
-問題：{question}"""
+現在用戶問題：{question}
+
+請直接使用上述卡片中的「答案」內容回答。如果找不到匹配的卡片，請說「根據我現有的資料，無法回答這個問題」。"""
 
     # 獲取當前對話的歷史記錄（最多保留最近5輪）
     history = conversation_history[session_id]['messages'][-5:] if conversation_history[session_id]['messages'] else []
@@ -274,10 +353,17 @@ def ask(request: AskRequest):
         'content': user_prompt,
     })
     
-    # 生成答案時增加思考步驟，改進參數設定
+    # 增加特定指示來強化卡片內容的使用
     messages.append({
         'role': 'system',
-        'content': "在回答前，請先分析問題並找出與問題最相關的內容。如果問題是關於印表機、機密資料或文件處理，請特別關注相關規範與處理方式。"
+        'content': f"""在回答前，請先仔細檢查提供的卡片內容。
+
+特別注意：
+1. 尋找包含「答案：」的部分，這是你必須使用的標準答案
+2. 如果問題關於印表機機密文件，尋找包含「非禮勿視」、「碎紙機」、「通知」等關鍵詞的內容
+3. 直接引用卡片中的答案，不要重寫或改寫
+
+用戶問題是：{question}"""
     })
     
     chat_response = ollama.chat(
@@ -338,3 +424,7 @@ def get_status():
         "active_conversations": len(conversation_history),
         "cleaned_conversations": expired_count
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=5000)

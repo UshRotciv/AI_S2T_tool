@@ -50,7 +50,7 @@ def test_vector_similarity(question1: str, question2: str, model: str = "mxbai-e
         logger.error(f"計算向量相似度失敗: {str(e)}")
         return 0.0
 
-def test_chroma_retrieval(query: str, collection_name: str = "security_awareness", collection_path: str = "./chroma_db") -> Dict[str, Any]:
+def test_chroma_retrieval(query: str, collection_name: str = "scenarios", collection_path: str = "./chroma_db") -> Dict[str, Any]:
     """測試向量數據庫檢索"""
     try:
         # 創建 ChromaDB 客戶端
@@ -59,7 +59,7 @@ def test_chroma_retrieval(query: str, collection_name: str = "security_awareness
         # 獲取向量化函數
         sentence_transformer_ef = embedding_functions.OllamaEmbeddingFunction(
             model_name="mxbai-embed-large",
-            url="http://localhost:11434/api",
+            url="http://localhost:11434",
         )
         
         # 獲取集合
@@ -93,7 +93,7 @@ def test_chroma_retrieval(query: str, collection_name: str = "security_awareness
         logger.error(f"向量數據庫檢索失敗: {str(e)}")
         return {"error": str(e)}
 
-def test_text_retrieval(query: str, collection_name: str = "security_awareness", collection_path: str = "./chroma_db") -> Dict[str, Any]:
+def test_text_retrieval(query: str, collection_name: str = "scenarios", collection_path: str = "./chroma_db") -> Dict[str, Any]:
     """測試文本關鍵字檢索"""
     try:
         # 創建 ChromaDB 客戶端
@@ -102,7 +102,7 @@ def test_text_retrieval(query: str, collection_name: str = "security_awareness",
         # 獲取向量化函數
         sentence_transformer_ef = embedding_functions.OllamaEmbeddingFunction(
             model_name="mxbai-embed-large",
-            url="http://localhost:11434/api",
+            url="http://localhost:11434",
         )
         
         # 獲取集合
@@ -132,7 +132,7 @@ def test_text_retrieval(query: str, collection_name: str = "security_awareness",
         logger.error(f"文本關鍵字檢索失敗: {str(e)}")
         return {"error": str(e)}
 
-def analyze_collection(collection_name: str = "security_awareness", collection_path: str = "./chroma_db") -> Dict[str, Any]:
+def analyze_collection(collection_name: str = "scenarios", collection_path: str = "./chroma_db") -> Dict[str, Any]:
     """分析向量數據庫集合"""
     try:
         # 創建 ChromaDB 客戶端

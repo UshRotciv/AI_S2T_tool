@@ -1,4 +1,5 @@
 import chromadb
+from chromadb.utils import embedding_functions
 import json
 import ollama
 import uuid
@@ -49,6 +50,90 @@ def chunk_text(text: str, max_chunk_size: int = 300) -> List[str]:
     
     return chunks
 
+def load_rule_ref_documents(script_dir: str) -> List[Dict[str, Any]]:
+    """從 rule_ref 目錄加載並解析文檔"""
+    rule_ref_path = os.path.join(script_dir, '..', 'rule_ref')
+    documents = []
+    
+    if not os.path.exists(rule_ref_path):
+        print(f"警告: 'rule_ref' 目錄不存在於 {rule_ref_path}")
+        return documents
+
+    print(f"正在從 {rule_ref_path} 加載文檔...")
+    
+    for root, _, files in os.walk(rule_ref_path):
+        for file in files:
+            if file.endswith(('.txt', '.md')):
+                file_path = os.path.join(root, file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        print(f"讀取檔案: {file}")
+
+                        # 嘗試解析遊戲問答格式
+                        # 使用正則表達式匹配多個題目
+                        qa_pairs = re.findall(r'\*\*題目 \d+: (.*?)\*\*(.*?)(?=\*\*題目 \d+:|\Z)', content, re.DOTALL)
+                        
+                        if qa_pairs:
+                            for i, (question, answer_text) in enumerate(qa_pairs):
+                                question = question.strip()
+                                answer = answer_text.strip()
+                                doc_id = f"rule-{os.path.splitext(file)[0]}-{i}"
+                                
+                                # 清理答案文本
+                                answer_lines = [line.strip() for line in answer.split('\n') if line.strip()]
+                                clean_answer = "\n".join(answer_lines)
+
+                                doc_content = (
+                                    f"標題：{question}\n"
+                                    f"問題：{question}\n"
+                                    f"答案：{clean_answer}\n"
+                                    f"來源：{file}"
+                                )
+                                
+                                documents.append({
+                                    'id': doc_id,
+                                    'content': doc_content,
+                                    'metadata': {
+                                        'category': 'rule_document',
+                                        'title': question,
+                                        'question': question,
+                                        'source': file,
+                                        'is_chunk': False,
+                                    }
+                                })
+                                print(f"  - 成功解析問答: {question}")
+                        else:
+                            # 如果不是問答格式，則作為單一文檔處理
+                            chunks = chunk_text(content)
+                            for i, chunk in enumerate(chunks):
+                                doc_id = f"rule-{os.path.splitext(file)[0]}-doc-chunk-{i}"
+                                title = os.path.splitext(file)[0].replace('_', ' ')
+                                
+                                doc_content = (
+                                    f"標題：{title}\n"
+                                    f"來源：{file}\n"
+                                    f"內容片段 {i+1}/{len(chunks)}:\n{chunk}"
+                                )
+
+                                documents.append({
+                                    'id': doc_id,
+                                    'content': doc_content,
+                                    'metadata': {
+                                        'category': 'rule_document',
+                                        'title': title,
+                                        'source': file,
+                                        'is_chunk': True,
+                                        'chunk_number': i + 1,
+                                        'total_chunks': len(chunks),
+                                    }
+                                })
+                            print(f"  - 作為一般文檔導入，共 {len(chunks)} 個片段")
+
+                except Exception as e:
+                    print(f"讀取或解析檔案 {file_path} 失敗: {e}")
+
+    return documents
 
 def main():
     # 檢查資料庫版本
@@ -63,23 +148,14 @@ def main():
         print(f"讀取資料庫版本時發生錯誤: {e}")
     
     # 更新版本與記錄優化信息
-    new_version = "2.0"
+    new_version = "3.0"
     optimization_notes = [
         "1. 實施結構化內容模板",
         "2. 實施語義分段（chunking）",
-        "3. 整合同義問法"
+        "3. 整合同義問法",
+        "4. 新增 rule_ref 目錄作為知識來源"
     ]
     
-    # Initialize ChromaDB client
-    chroma_client = chromadb.Client()
-    
-    # Remove existing collection if it exists
-    try:
-        chroma_client.delete_collection("security_scenarios")
-        print("刪除現有的向量資料庫")
-    except:
-        pass
-        
     # 更新資料庫版本資訊
     print(f"更新資料庫版本: {current_version} -> {new_version}")
     print("本次優化項目:")
@@ -92,9 +168,15 @@ def main():
     except Exception as e:
         print(f"寫入資料庫版本時發生錯誤: {e}")
 
-    # Initialize ChromaDB client
+    # Initialize ChromaDB client (使用持久化客戶端)
     client = chromadb.PersistentClient(path="./chroma_db")
 
+    # 設定嵌入函數，確保與main.py一致
+    sentence_transformer_ef = embedding_functions.OllamaEmbeddingFunction(
+        model_name="mxbai-embed-large",
+        url="http://localhost:11434/api",
+    )
+    
     # 先清空舊有集合以避免id衝突問題
     try:
         client.delete_collection("scenarios")
@@ -102,14 +184,23 @@ def main():
     except Exception as e:
         print("集合不存在或清空失敗，建立新集合")
 
-    # 創建新集合
-    collection = client.create_collection("scenarios")
+    # 創建新集合，使用一致的嵌入函數設定
+    collection = client.create_collection(
+        "scenarios",
+        embedding_function=sentence_transformer_ef,
+        metadata={"hnsw:space": "cosine"}
+    )
+    print("成功創建 scenarios 集合，使用 mxbai-embed-large 嵌入模型")
 
     # --- Load all data sources ---
     all_documents = []
 
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    scenarios_path = os.path.join(script_dir, '../app-server/scenarios.json')
+    meta_info_path = os.path.join(script_dir, 'meta_info.json')
+
     # 1. Load scenarios from scenarios.json
-    with open('../app-server/scenarios.json', 'r', encoding='utf-8') as f:
+    with open(scenarios_path, 'r', encoding='utf-8') as f:
         scenarios_data = json.load(f)
         for scenario in scenarios_data['data']:
             # 使用scenario id而非title作為文檔id，避免衝突
@@ -197,7 +288,7 @@ def main():
                 print(f"準備導入完整情境: {metadata_value['title']}")
 
     # 2. Load meta information from meta_info.json
-    with open('meta_info.json', 'r', encoding='utf-8') as f:
+    with open(meta_info_path, 'r', encoding='utf-8') as f:
         meta_data = json.load(f)
         for item in meta_data:
             doc_id = item.get('id', f"meta-{str(uuid.uuid4())}")
@@ -222,14 +313,16 @@ def main():
             # 不再對答案進行分段，保持完整問答對
             answer = item.get('answer', '未知')
             
-            # 創建結構化內容，包含同義問法
+            # 創建更明確的結構化內容，包含同義問法和學習要點
             synonyms_text = "\n".join([f"相似問法：{q}" for q in synonymous_questions]) if synonymous_questions else ""
+            learnings_text = "\n".join([f"學習要點：{learning}" for learning in item.get('learnings', [])]) if item.get('learnings') else ""
             
             content = (
                 f"標題：{metadata_value['title']}\n"
                 f"問題：{metadata_value['question']}\n"
                 f"{synonyms_text}\n" if synonyms_text else ""
-                f"答案：{answer}"
+                f"答案：{answer}\n"
+                f"{learnings_text}" if learnings_text else ""
             )
             
             all_documents.append({
@@ -246,14 +339,20 @@ def main():
             })
             print(f"準備導入完整元資訊: {metadata_value['title']}")
 
+    # 3. Load documents from rule_ref directory
+    rule_ref_docs = load_rule_ref_documents(script_dir)
+    all_documents.extend(rule_ref_docs)
+
     # --- Process and ingest all documents ---
     print(f"總共有 {len(all_documents)} 筆文檔需要導入")
     
     for doc in all_documents:
         try:
-            # Generate embedding using Ollama
+            # Generate embedding using Ollama (確保使用與main.py一致的模型)
+            print(f"正在為文檔 {doc['metadata'].get('title', doc['id'])} 生成向量...")
             response = ollama.embeddings(model='mxbai-embed-large', prompt=doc['content'])
             embedding = response["embedding"]
+            print(f"向量維度: {len(embedding)}")
             
             # Add to ChromaDB collection
             collection.add(
@@ -262,7 +361,7 @@ def main():
                 documents=[doc['content']],
                 metadatas=[doc['metadata']]
             )
-            print(f"成功導入文檔: {doc['metadata'].get('title', doc['id'])}")
+            print(f"成功導入文檔: {doc['metadata'].get('title', doc['id'])} ")
         except Exception as e:
             print(f"導入文檔失敗 {doc['id']}: {str(e)}")
 

@@ -1,0 +1,35 @@
+開始RAG系統第二次基準測試...
+
+測試 [基礎問題]: 印表機發現無人拿走的機密文件該怎麼做?
+API請求失敗: HTTPConnectionPool(host='localhost', port=5000): Max retries exceeded with url: /query (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002B633A95060>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+  檢索成功: False
+  回答: 當你發現有無人拿走的機密文件在公共空間（如印表機旁）時，應立即採取以下幾個步驟來確保信息安全：
+
+1. **尋找適當的人處理**：首先確定是誰將文件放置在那裡。有可能是誰不小心遺漏的。若是同事或是工作...
+  響應時間: 14874.87 ms
+
+測試 [變形問題]: 看到印表機旁有機密文件但沒人在場該怎麼處理?
+API請求失敗: HTTPConnectionPool(host='localhost', port=5000): Max retries exceeded with url: /query (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002B633A96740>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+  檢索成功: False
+  回答: 若在印刷機旁發現機密文件但周遭無人，這幾點步驟有助於確保信息安全：
+
+1. **立馬取回**: 如果確認為機密文件且不屬於自己或授權處理的部門，請馬上將其安全地拿回到發送它的辦公室或指定區域。確保在離...
+  響應時間: 12806.40 ms
+
+測試 [語意挑戰問題]: 印表機旁發現一份文件，上面寫著ASUS Confidential
+API請求失敗: HTTPConnectionPool(host='localhost', port=5000): Max retries exceeded with url: /query (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002B633A97AF0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+  檢索成功: False
+  回答: 在這種情況下，確保適當的資訊安全並防止資料外洩是極為重要的。以下是一些步驟來處理這個情況：
+
+1. **立即封鎖：** 如果其他人可以輕易接觸到這份文件，應立即將其從原位置移開，並且確保只有獲得授權的...
+  響應時間: 13302.22 ms
+
+測試結果已保存至 ../evaluation/test_results_phase2.json
+
+========== 測試摘要 ==========
+總測試查詢數: 3
+檢索成功率: 0/3 (0.0%)
+平均響應時間: 13661.16 ms
+回答準確性評分待人工評估
+=============================
+
