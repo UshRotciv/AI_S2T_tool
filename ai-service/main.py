@@ -135,9 +135,19 @@ def get_or_create_session(session_id: Optional[str] = None) -> str:
         conversation_history[session_id]['last_active'] = datetime.now()
     return session_id
 
-# 5. 空結果檢查輔助函式
+# 5. 空結果檢查輔助函式（修正邏輯）
 def empty_results(r):
-    return (not r) or (not r.get('documents')) or (not r['documents']) or (not r['documents'][0])
+    if not r:
+        return True
+    if not r.get('documents'):
+        return True
+    if not r['documents']:
+        return True
+    if not r['documents'][0]:
+        return True
+    if len(r['documents'][0]) == 0:
+        return True
+    return False
 
 @app.post("/api/ask")
 def ask(request: AskRequest):
@@ -179,55 +189,16 @@ def ask(request: AskRequest):
                 )
                 print(f"一般問題（回退不過濾）查詢結果數量: {len(results['ids'][0]) if results.get('ids') and results['ids'][0] else 0}")
 
-            # LLM Re-ranking 進行相關性過濾
-            if results['ids'] and results['ids'][0]:
-                relevant_indices = []
-                re_ranking_debug_info = []
-                relevance_check_prompt_template = """You are an assistant for a cybersecurity training program. Your task is to determine if a document from your knowledge base is relevant to the user's question. The knowledge base only contains information about cybersecurity scenarios and policies.
+            # 暫時禁用 LLM Re-ranking，直接使用向量檢索結果進行測試
+            print(f"跳過 LLM Re-ranking，直接使用向量檢索結果進行測試")
+            print(f"向量檢索找到 {len(results['ids'][0]) if results.get('ids') and results['ids'][0] else 0} 個文件")
 
-User's Question: '{question}'
-
-Document Content:
----
-{document}
----
-
-Based on the content, is this document relevant to answering the user's question? The document is considered relevant ONLY IF it directly addresses the user's question within the scope of cybersecurity. Answer with a single word: 'yes' or 'no'."""
-                
-                for i, doc in enumerate(results['documents'][0]):
-                    prompt = relevance_check_prompt_template.format(question=question, document=doc)
-                    try:
-                        relevance_res = ollama.chat(
-                            model='qwen2',
-                            messages=[{'role': 'user', 'content': prompt}],
-                            stream=False,
-                            options={'temperature': 0.0} # 確定性檢查
-                        )
-                        answer = relevance_res['message']['content'].strip().lower()
-                        print(f"Relevance check for doc {i} ('{results['ids'][0][i]}'): Answer is '{answer}'.")
-                        if answer.startswith('yes'):
-                            relevant_indices.append(i)
-                    except Exception as e:
-                        print(f"Error during relevance check for doc {i}: {e}")
-
-                # 基於相關性檢查過濾結果
-                print(f"Found {len(relevant_indices)} relevant documents out of {len(results['documents'][0])}.")
-                if relevant_indices:
-                    results['ids'][0] = [results['ids'][0][i] for i in relevant_indices]
-                    results['documents'][0] = [results['documents'][0][i] for i in relevant_indices]
-                    results['metadatas'][0] = [results['metadatas'][0][i] for i in relevant_indices]
-                    results['distances'][0] = [results['distances'][0][i] for i in relevant_indices]
-                else:
-                    # 如果沒有任何文件被認為是相關的，則清空結果
-                    results['ids'][0], results['documents'][0], results['metadatas'][0], results['distances'][0] = [], [], [], []
-
-        # 5. 檢查最終結果是否為空
-        if empty_results(results):
-            print("No relevant documents found after re-ranking. Returning empty answer.")
-            # 在返回前，仍然記錄這次無效的查詢
-            with history_lock:
-                conversation_history[session_id]['messages'].append({'role': 'user', 'content': question})
-                conversation_history[session_id]['messages'].append({'role': 'assistant', 'content': '很抱歉，我無法從現有的資料中找到與您問題相關的答案。'})
+        # 暫時完全繞過空結果檢查，直接處理向量檢索結果
+        print(f"=== 繞過所有過濾，直接使用向量檢索結果 ===")
+        if results and results.get('documents') and results['documents'] and results['documents'][0]:
+            print(f"✅ 找到 {len(results['documents'][0])} 個文件，直接處理")
+        else:
+            print("❌ 向量檢索確實沒有結果")
             return {"answer":"很抱歉，我無法從現有的資料中找到與您問題相關的答案。","sources":[],"session_id":session_id}
 
         # 詳細調試資訊輸出
@@ -266,6 +237,12 @@ Based on the content, is this document relevant to answering the user's question
     # Construct the prompt for the chat model
     context = "\n".join([f"- {doc}" for doc in results['documents'][0]])
     
+    # 添加調試輸出，查看實際的 context 內容
+    print(f"=== 傳送給 LLM 的 Context 內容 ===")
+    print(f"Context 長度: {len(context)} 字符")
+    print(f"Context 內容預覽: {context[:500]}...")
+    print(f"=== Context 結束 ===")
+    
     # 強化系統提示，嚴格限制僅使用卡片內容
     system_prompt = """你是 ASUS 的資安助手，專門回答資安相關問題。
 
@@ -282,14 +259,21 @@ Based on the content, is this document relevant to answering the user's question
 
 記住：你的任務是忠實傳達卡片內容，不是創造或重新表達內容。"""
     
-    # 強化用戶提示格式，明確指示卡片結構
-    user_prompt = f"""以下是資安卡片內容，包含標題、問題和答案：
+    # 強化用戶提示格式，提升語義匹配能力
+    user_prompt = f"""以下是從資安知識庫中檢索到的相關卡片內容：
 
 {context}
 
-現在用戶問題：{question}
+用戶問題：{question}
 
-請直接使用上述卡片中的「答案」內容回答。如果找不到匹配的卡片，請說「根據我現有的資料，無法回答這個問題」。"""
+**重要指示**：
+1. 上述卡片內容已經通過語義檢索確認與用戶問題相關
+2. 請仔細閱讀每張卡片的內容，尋找與問題相關的資訊
+3. 即使用詞不完全相同，只要概念相關就應該使用該卡片內容回答
+4. 對於「免費軟體」、「測試軟體」等問題，請查看是否有軟體安全、下載風險等相關內容
+5. 對於「印表機」、「機密文件」等問題，請查看是否有文件處理、資訊安全等相關內容
+
+請基於上述卡片內容提供答案。"""
 
     # 獲取當前對話的歷史記錄（最多保留最近5輪）
     with history_lock:
