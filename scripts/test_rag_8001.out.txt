@@ -1,0 +1,331 @@
+﻿--- 健康檢查 ---
+{
+  "status": "running",
+  "active_conversations": 4,
+  "cleaned_conversations": 0
+}
+
+=== 標題測試 ===
+[Debug] 檢索摘要:
+{
+  "query": "印表機發現無人拿走的機密文件",
+  "results": [
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-0",
+      "title": "印表機文件",
+      "category": "rule_document",
+      "question": "印表機文件",
+      "distance": 0.34538543224334717
+    },
+    {
+      "id": "scenario-new-001",
+      "title": "印表機發現無人拿走的機密文件",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "question": "你在印表機旁發現一份標示著「ASUS Confidential」的設計圖，但附近沒有人。這時你該怎麼做？",
+      "distance": 0.3468073606491089
+    },
+    {
+      "id": "scenario-new-004",
+      "title": "居家辦公的保密責任",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "question": "當你居家辦公（WFH）時，家人對你正在設計的產品模型感到好奇，可以拿給他們看或解釋一下嗎？",
+      "distance": 0.37002694606781006
+    },
+    {
+      "id": "scenario-new-007",
+      "title": "浮水印的真正目的",
+      "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
+      "question": "在對外提供的文件上加上「浮水印」，主要目的是什麼？",
+      "distance": 0.37945932149887085
+    },
+    {
+      "id": "scenario-new-014",
+      "title": "留下可追溯的數位足跡",
+      "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
+      "question": "SPM臨時打電話給你，說客戶會議急需一份重要設計檔案。你應該如何處理最能保護自己？",
+      "distance": 0.3810039162635803
+    }
+  ]
+}
+
+[Ask] 回答:
+{
+  "answer": "根據我現有的資料，當你在印表機旁發現一份看起來很重要的設計圖，但失主似乎離開了時，正確的做法是：\n\n選擇B) 不主動碰觸也不窺探文件內容。\n\n最佳做法是通知設計中心管理師處理，徹底做到「非禮勿視、非禮勿聽」。即使出於善意，也不應隨意接觸或移動不屬於自己權限的資料。如果可以判斷為正本（如身分證），則立即通知設計中心管理師或文件所有者前來處理。\n\n學習重點：遵守「非禮勿視」原則，不窺探非權限內的資訊；立即通知文件所有者或管理人員處理；養成保護公司實體資產的習慣。",
+  "session_id": "9fc2ce86-16ac-40bb-a7fd-ba829bcc05fb",
+  "sources_sample": [
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-0",
+      "title": "印表機文件",
+      "category": "rule_document",
+      "distance": 0.34538543224334717
+    },
+    {
+      "id": "scenario-new-001",
+      "title": "印表機發現無人拿走的機密文件",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "distance": 0.3468073606491089
+    },
+    {
+      "id": "scenario-new-004",
+      "title": "居家辦公的保密責任",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "distance": 0.37002694606781006
+    },
+    {
+      "id": "scenario-new-007",
+      "title": "浮水印的真正目的",
+      "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
+      "distance": 0.37945932149887085
+    },
+    {
+      "id": "scenario-new-014",
+      "title": "留下可追溯的數位足跡",
+      "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
+      "distance": 0.3810039162635803
+    }
+  ]
+}
+
+=== questionLabel測試 ===
+[Debug] 檢索摘要:
+{
+  "query": "你在印表機旁發現一份標示著「ASUS Confidential」的設計圖，但附近沒有人。這時你該怎麼做？",
+  "results": [
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-9",
+      "title": "免費軟體風險",
+      "category": "rule_document",
+      "question": "免費軟體風險",
+      "distance": 0.1980118751525879
+    },
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-10",
+      "title": "作品集累積(在職期間)",
+      "category": "rule_document",
+      "question": "作品集累積(在職期間)",
+      "distance": 0.2049139142036438
+    },
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-8",
+      "title": "會議記錄拍照",
+      "category": "rule_document",
+      "question": "會議記錄拍照",
+      "distance": 0.2079489827156067
+    },
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-1",
+      "title": "鎖定電腦",
+      "category": "rule_document",
+      "question": "鎖定電腦",
+      "distance": 0.21787810325622559
+    },
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-6",
+      "title": "緊急檔案處理",
+      "category": "rule_document",
+      "question": "緊急檔案處理",
+      "distance": 0.22310185432434082
+    }
+  ]
+}
+
+[Ask] 回答:
+{
+  "answer": "根據我現有的資料，當你在印表機旁發現一份標示著「ASUS Confidential」的設計圖，但附近沒有人時，正確的做法是選擇B) 不主動碰觸也不窺探文件內容。最佳做法是通知設計中心管理師處理，徹底做到「非禮勿視、非禮勿聽」。",
+  "session_id": "35e3abdc-b589-4b92-8d45-ffec19e52fa7",
+  "sources_sample": [
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-9",
+      "title": "免費軟體風險",
+      "category": "rule_document",
+      "distance": 0.1980118751525879
+    },
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-10",
+      "title": "作品集累積(在職期間)",
+      "category": "rule_document",
+      "distance": 0.2049139142036438
+    },
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-8",
+      "title": "會議記錄拍照",
+      "category": "rule_document",
+      "distance": 0.2079489827156067
+    },
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-1",
+      "title": "鎖定電腦",
+      "category": "rule_document",
+      "distance": 0.21787810325622559
+    },
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-6",
+      "title": "緊急檔案處理",
+      "category": "rule_document",
+      "distance": 0.22310185432434082
+    }
+  ]
+}
+
+=== 資安範疇自然語言 ===
+[Debug] 檢索摘要:
+{
+  "query": "在辦公室如果看到別人的機密文件遺留在印表機該怎麼處理才最合規？",
+  "results": [
+    {
+      "id": "scenario-new-004",
+      "title": "居家辦公的保密責任",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "question": "當你居家辦公（WFH）時，家人對你正在設計的產品模型感到好奇，可以拿給他們看或解釋一下嗎？",
+      "distance": 0.29013144969940186
+    },
+    {
+      "id": "scenario-new-001",
+      "title": "印表機發現無人拿走的機密文件",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "question": "你在印表機旁發現一份標示著「ASUS Confidential」的設計圖，但附近沒有人。這時你該怎麼做？",
+      "distance": 0.3056873679161072
+    },
+    {
+      "id": "scenario-new-012",
+      "title": "在職期間的智慧財產權",
+      "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
+      "question": "我有一個未被公司採用的設計提案，因為覺得很可惜，想把它放進自己的線上作品集，展現個人實力。這樣可以嗎？",
+      "distance": 0.3174617290496826
+    },
+    {
+      "id": "scenario-new-007",
+      "title": "浮水印的真正目的",
+      "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
+      "question": "在對外提供的文件上加上「浮水印」，主要目的是什麼？",
+      "distance": 0.32492387294769287
+    },
+    {
+      "id": "scenario-new-006",
+      "title": "加密檔案的密碼傳遞",
+      "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
+      "question": "當你傳送一份加密的PDF檔案給外部廠商時，應該如何安全地提供密碼？",
+      "distance": 0.3267349600791931
+    }
+  ]
+}
+
+[Ask] 回答:
+{
+  "answer": "根據我現有的資料，無法回答這個問題。在提供的卡片中並未找到關於辦公室內發現他人機密文件遺留在印表機時應如何處理的信息。建議遵循一般資安原則，如立即通知相關人員或使用碎紙機將文件安全處理，同時確保不窺探或接觸非自己權限範圍的資訊。",
+  "session_id": "dd7bb49a-aafe-4aa5-befb-a3de4f6445ec",
+  "sources_sample": [
+    {
+      "id": "scenario-new-004",
+      "title": "居家辦公的保密責任",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "distance": 0.29013144969940186
+    },
+    {
+      "id": "scenario-new-001",
+      "title": "印表機發現無人拿走的機密文件",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "distance": 0.3056873679161072
+    },
+    {
+      "id": "scenario-new-012",
+      "title": "在職期間的智慧財產權",
+      "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
+      "distance": 0.3174617290496826
+    },
+    {
+      "id": "scenario-new-007",
+      "title": "浮水印的真正目的",
+      "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
+      "distance": 0.32492387294769287
+    },
+    {
+      "id": "scenario-new-006",
+      "title": "加密檔案的密碼傳遞",
+      "category": "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
+      "distance": 0.3267349600791931
+    }
+  ]
+}
+
+=== 範疇外問題 ===
+[Debug] 檢索摘要:
+{
+  "query": "明天台積電股票會漲嗎？",
+  "results": [
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-8",
+      "title": "會議記錄拍照",
+      "category": "rule_document",
+      "question": "會議記錄拍照",
+      "distance": 0.28050923347473145
+    },
+    {
+      "id": "scenario-new-014",
+      "title": "留下可追溯的數位足跡",
+      "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
+      "question": "SPM臨時打電話給你，說客戶會議急需一份重要設計檔案。你應該如何處理最能保護自己？",
+      "distance": 0.2843438982963562
+    },
+    {
+      "id": "scenario-new-004",
+      "title": "居家辦公的保密責任",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "question": "當你居家辦公（WFH）時，家人對你正在設計的產品模型感到好奇，可以拿給他們看或解釋一下嗎？",
+      "distance": 0.2862365245819092
+    },
+    {
+      "id": "scenario-new-001",
+      "title": "印表機發現無人拿走的機密文件",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "question": "你在印表機旁發現一份標示著「ASUS Confidential」的設計圖，但附近沒有人。這時你該怎麼做？",
+      "distance": 0.29684966802597046
+    },
+    {
+      "id": "scenario-new-003",
+      "title": "辦公區域的拍照風險",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "question": "主管買了下午茶點心慰勞大家，可以拍照上傳到個人的社群媒體，分享公司的福利嗎？",
+      "distance": 0.304459810256958
+    }
+  ]
+}
+
+[Ask] 回答:
+{
+  "answer": "根據我現有的資料，無法回答這個問題。",
+  "session_id": "d030b60a-0a19-4d33-9434-86ffdd732d4f",
+  "sources_sample": [
+    {
+      "id": "rule-ADC_confidential_awareness_game_V_Reordered-8",
+      "title": "會議記錄拍照",
+      "category": "rule_document",
+      "distance": 0.28050923347473145
+    },
+    {
+      "id": "scenario-new-014",
+      "title": "留下可追溯的數位足跡",
+      "category": "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)",
+      "distance": 0.2843438982963562
+    },
+    {
+      "id": "scenario-new-004",
+      "title": "居家辦公的保密責任",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "distance": 0.2862365245819092
+    },
+    {
+      "id": "scenario-new-001",
+      "title": "印表機發現無人拿走的機密文件",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "distance": 0.29684966802597046
+    },
+    {
+      "id": "scenario-new-003",
+      "title": "辦公區域的拍照風險",
+      "category": "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+      "distance": 0.304459810256958
+    }
+  ]
+}
+

@@ -1,0 +1,142 @@
+{
+  "total_tests": 15,
+  "passed_tests": 0,
+  "failed_tests": 15,
+  "test_details": [
+    {
+      "question": "你在印表機旁發現一份標示著「ASUS Confidential」的設計圖，但附近沒有人。這時你該怎麼做？",
+      "category": "印表機發現無人拿走的機密文件",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947E3E0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-001",
+      "retrieved_ids": []
+    },
+    {
+      "question": "你只是要去茶水間倒杯水，大概3分鐘就回來，有需要手動鎖定電腦嗎？",
+      "category": "人離機鎖的重要性",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947EC50>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-002",
+      "retrieved_ids": []
+    },
+    {
+      "question": "主管買了下午茶點心慰勞大家，可以拍照上傳到個人的社群媒體，分享公司的福利嗎？",
+      "category": "辦公區域的拍照風險",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947EBF0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-003",
+      "retrieved_ids": []
+    },
+    {
+      "question": "當你居家辦公（WFH）時，家人對你正在設計的產品模型感到好奇，可以拿給他們看或解釋一下嗎？",
+      "category": "居家辦公的保密責任",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947E380>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-004",
+      "retrieved_ids": []
+    },
+    {
+      "question": "要將一份設計簡報分享給跨部門的同事，使用Email直接附加檔案，和使用OneDrive產生共用連結，哪一種方式更安全？",
+      "category": "更安全的檔案分享方式",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947D2D0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-005",
+      "retrieved_ids": []
+    },
+    {
+      "question": "當你傳送一份加密的PDF檔案給外部廠商時，應該如何安全地提供密碼？",
+      "category": "加密檔案的密碼傳遞",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947F4C0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-006",
+      "retrieved_ids": []
+    },
+    {
+      "question": "在對外提供的文件上加上「浮水印」，主要目的是什麼？",
+      "category": "浮水印的真正目的",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947FD30>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-007",
+      "retrieved_ids": []
+    },
+    {
+      "question": "在咖啡廳或飯店使用公共Wi-Fi時，只要連上了公司的VPN，是否就絕對安全了？",
+      "category": "公共Wi-Fi與VPN的使用",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947FA60>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-008",
+      "retrieved_ids": []
+    },
+    {
+      "question": "我想使用一個最新的AI繪圖工具來輔助設計，但它不在公司核准的清單上。我可以用個人帳號註冊，並上傳一些去識別化的草圖嗎？",
+      "category": "使用生成式AI工具的風險",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947F190>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-009",
+      "retrieved_ids": []
+    },
+    {
+      "question": "會議結束後，為了方便記錄，我用自己的手機拍下白板上的會議內容，並上傳到自己的Teams聊天室。這樣做是否合規？",
+      "category": "會議白板的拍照處理",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947DE10>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-010",
+      "retrieved_ids": []
+    },
+    {
+      "question": "你拿到一台搭載最新獨家NPU的工程樣機，想測試其AI效能。可以上網找知名的免費跑分軟體來測試嗎？",
+      "category": "免費測試軟體的風險",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947E6B0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-011",
+      "retrieved_ids": []
+    },
+    {
+      "question": "我有一個未被公司採用的設計提案，因為覺得很可惜，想把它放進自己的線上作品集，展現個人實力。這樣可以嗎？",
+      "category": "在職期間的智慧財產權",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947E710>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-012",
+      "retrieved_ids": []
+    },
+    {
+      "question": "大掃除時，在儲藏室翻出多年前專案留下的精緻模型，專案早已結束，可以直接當作回收垃圾處理嗎？",
+      "category": "實體模型的報廢處理",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947EC80>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-013",
+      "retrieved_ids": []
+    },
+    {
+      "question": "SPM臨時打電話給你，說客戶會議急需一份重要設計檔案。你應該如何處理最能保護自己？",
+      "category": "留下可追溯的數位足跡",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947E5F0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "../app-server/scenarios.json",
+      "expected_id": "scenario-new-014",
+      "retrieved_ids": []
+    },
+    {
+      "question": "你可以做什麼？你了解哪些資安知識？",
+      "category": "AI 知識範疇總覽",
+      "error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000022A8947DD50>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "passed": false,
+      "source_file": "meta_info.json",
+      "expected_id": "meta-intro-01",
+      "retrieved_ids": []
+    }
+  ]
+}

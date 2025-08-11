@@ -20,11 +20,12 @@ echo.
 
 :: --- 1. Launch Ollama Service ---
 echo [1/4] Launching Ollama Service...
-start "%OLLAMA_TITLE%" cmd /k "ollama serve"
+echo      (First, ensuring the embedding model 'mxbai-embed-large' is available...)
+start "%OLLAMA_TITLE%" cmd /k "ollama pull mxbai-embed-large && echo Model pull complete. Starting server... && ollama serve"
 
 :: --- 2. Launch AI Service ---
 echo [2/4] Launching AI Service (Python/FastAPI)...
-start "%AI_SERVICE_TITLE%" /D "%BASE_DIR%ai-service" cmd /k "echo Activating virtual environment & call .\venv\Scripts\activate && echo Installing Python dependencies... & pip install -r requirements.txt && echo Starting FastAPI server... & uvicorn main:app --host 0.0.0.0 --port 8001"
+start "%AI_SERVICE_TITLE%" /D "%BASE_DIR%ai-service" cmd /k "echo Activating virtual environment & call .\venv\Scripts\activate && echo Installing Python dependencies... & pip install -r requirements.txt && echo Starting FastAPI server... & uvicorn main:app --host 0.0.0.0 --port 8000"
 
 echo.
 echo Waiting for 10 seconds to allow AI service to initialize...

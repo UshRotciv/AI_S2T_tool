@@ -1,0 +1,119 @@
+Victor，我把新版 main.py 完整掃過了。先給結論：**邏輯OK、可用，但還有 6 個「穩定性/一致性/效能/安全性」重點可再補強**。我用「要做／為什麼／怎麼改」超精簡列給你。
+
+# 必修（建議立刻改）
+
+1. **get\_collection 也要綁同一個 embedding\_function**
+
+* 為什麼：避免先前用不同 embedding 建庫，後續查詢計算不一致。
+* 怎麼改：
+
+```python
+try:
+    collection = client.get_collection(
+        "scenarios",
+        embedding_function=sentence_transformer_ef,   # ← 加上
+    )
+    print("成功連接到現有的scenarios集合")
+except:
+    print("集合不存在，請先執行ingest.py建立資料庫")
+    collection = client.create_collection(
+        "scenarios",
+        embedding_function=sentence_transformer_ef,
+        metadata={"hnsw:space": "cosine"}
+    )
+```
+
+（見你的集合初始化段落。）
+
+2. **對話歷史加鎖，避免多工競態**（Uvicorn/Gunicorn 多 workers/threads 時會出事）
+
+* 怎麼改：
+
+```python
+import threading
+history_lock = threading.Lock()
+
+def get_or_create_session(session_id: Optional[str] = None) -> str:
+    if not session_id:
+        session_id = str(uuid.uuid4())
+    with history_lock:
+        conversation_history.setdefault(session_id, {'messages': [], 'last_active': datetime.now()})
+        conversation_history[session_id]['last_active'] = datetime.now()
+    return session_id
+
+# 讀寫 conversation_history 的地方都包一層 with history_lock:
+with history_lock:
+    conversation_history[session_id]['messages'].append({...})
+```
+
+（對話歷史目前是全域 dict。）
+
+3. **加 CORS**（前後端分離時一定要）
+
+```python
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # 或你的網域清單
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+（加在 app = FastAPI() 之後。）
+
+# 應修（近期改善）
+
+4. **Re-ranking 效能**：你現在對每一筆候選逐筆 call 一次 `ollama.chat('qwen2')` 做 yes/no。
+
+* 建議：先向量檢索抓較多（例如 `k=12`），**再只對前 5 筆**做 LLM 過濾；或「把多段文件合併成一次 prompt，請模型回傳保留的索引」。同時加 **timeout / 失敗回退**。
+* 小改範例（只檢 5 筆）：
+
+```python
+k = min(5, len(results['documents'][0]))
+docs = results['documents'][0][:k]
+ids  = results['ids'][0][:k]
+# 逐筆 or 合併一次判斷；若 LLM 出錯就直接用距離排序當結果
+```
+
+（目前逐筆判斷在 /api/ask 檢索後段。）
+
+5. **輸入檢查＆保底邏輯集中化**
+
+* 目的：避免 `KeyError` 或空結果時分支過多。
+* 作法：抽一個 helper 檢查 `results` 是否為空；你在下半段已做一次判斷，但建議統一。
+
+```python
+def empty_results(r):
+    return (not r) or (not r.get('documents')) or (not r['documents']) or (not r['documents'][0])
+
+# 查詢完、re-rank 後立刻：
+if empty_results(results):
+    return {"answer":"很抱歉，我無法從現有的資料中找到與您問題相關的答案。","sources":[],"session_id":session_id}
+```
+
+（放在 /api/ask LLM 前。）
+
+6. **Prompt 注入/內容管控**
+
+* 你已用 system prompt 限制「只能用卡片」，很好。但更穩的是**只把卡片中的「答案」欄位丟給模型**（而非整段原卡），或在送入前用正則抽取 `答案：`、`學習要點：`欄位，**避免文件內出現指令性句子**影響回答。
+* 可在組 `context` 時先 parse，最後再送給 `user_prompt`。
+  （目前是把整段卡片串成 context。）
+
+# 可修（清潔度/維運）
+
+* **移除未用 import／函式**：`Depends`、`ingest`（現在沒用）、`handle_remove_readonly`（未呼叫）等；保持檔案乾淨。
+* **/api/status 每次都清理會話**：OK，但若你在監控輪詢很頻繁，建議把清理移到背景排程（APScheduler）或拉長頻率。
+* **距離分數解讀**：你用 `cosine`，**距離越小越像**；在 debug log / UI 顯示別誤標成分數越大越好。
+* **空集合訊息**：現在「提示請先執行 ingest」同時又 create 空集合。建議：要嘛不 create；要嘛 create 後把 API 回覆也明講「目前知識庫為空」。
+* **模型前置檢查**：在啟動時 ping 一下 `ollama` 是否有 `qwen2` / `mxbai-embed-large`，避免第一個請求才炸。可在 `__main__` 前做 try/except。
+
+# 兩個小升級（效果佳、改動小）
+
+* **Meta 問題判斷**：目前只是中文關鍵字 `in`；可同時加上英文關鍵字，並把檢索 `where={"category":"meta"}` 留著不動。
+* **錯誤回覆一致性**：把 `except` 時的訊息與「找不到資料」訊息區分清楚（你已有做到），再加 `request_id`（例如 `uuid4()`）便於追蹤。
+
+---
+
+如果你要，我可以直接幫你產出一版「**最小差異 patch**」：一次把 **(1) 綁 embedding\_function、(2) 對話加鎖、(3) CORS、(4) 空結果保底** 都補上。你要不要就照這版改？

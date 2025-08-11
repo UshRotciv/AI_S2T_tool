@@ -1,0 +1,4 @@
+{
+  "error": "<urlopen error [WinError 10061] 無法連線，因為目標電腦拒絕連線。>",
+  "url": "http://localhost:8001/api/debug/sample?q=%E5%8D%B0%E8%A1%A8%E6%A9%9F%E7%99%BC%E7%8F%BE%E7%84%A1%E4%BA%BA%E6%8B%BF%E8%B5%B0%E7%9A%84%E6%A9%9F%E5%AF%86%E6%96%87%E4%BB%B6&k=5"
+}

@@ -33,47 +33,44 @@ try:
         
         # 檢查是否存在包含印表機相關內容的文檔
         if count > 0:
-            # 嘗試查詢包含印表機的文檔
-            results = collection.query(
-                query_texts=["印表機 機密文件"],
-                n_results=min(5, count),
-                include=["documents", "metadatas", "distances"]
-            )
+            # 執行針對性的查詢測試
+            print("\n正在執行針對性的查詢測試...")
             
-            print(f"\n查詢結果:")
-            if results['ids'] and len(results['ids'][0]) > 0:
-                for i, (doc_id, distance) in enumerate(zip(results['ids'][0], results['distances'][0])):
-                    metadata = results['metadatas'][0][i] if i < len(results['metadatas'][0]) else {}
-                    title = metadata.get('title', '未知標題')
-                    category = metadata.get('category', '未知類別')
+            test_queries = [
+                "免費測試軟體的風險",
+                "加密檔案的密碼傳遞",
+                "印表機發現無人拿走的機密文件"
+            ]
+
+            for query in test_queries:
+                print(f"\n--- 查詢: '{query}' ---")
+                try:
+                    results = collection.query(
+                        query_texts=[query],
+                        n_results=3, # 檢索3個最相關的結果
+                        include=["documents", "metadatas", "distances"]
+                    )
                     
-                    print(f"  結果 {i+1}:")
-                    print(f"    ID: {doc_id}")
-                    print(f"    標題: {title}")
-                    print(f"    類別: {category}")
-                    print(f"    距離: {distance:.4f}")
-                    
-                    # 顯示文檔內容的前200個字符
-                    content = results['documents'][0][i]
-                    print(f"    內容預覽: {content[:200]}...")
-                    
-                    # 檢查是否包含關鍵詞
-                    if '印表機' in content and '機密' in content:
-                        print(f"    ✓ 包含印表機和機密關鍵詞")
-            else:
-                print("  未找到相關文檔")
-                
-                # 嘗試列出所有文檔的標題
-                print("\n列出所有文檔標題:")
-                all_results = collection.get(include=["metadatas"])
-                if all_results['ids']:
-                    for i, doc_id in enumerate(all_results['ids'][:10]):  # 只顯示前10個
-                        metadata = all_results['metadatas'][i] if i < len(all_results['metadatas']) else {}
-                        title = metadata.get('title', '未知標題')
-                        category = metadata.get('category', '未知類別')
-                        print(f"    {i+1}. [{category}] {title}")
-                    if len(all_results['ids']) > 10:
-                        print(f"    ... 還有 {len(all_results['ids']) - 10} 個文檔")
+                    if results.get('ids') and results['ids'][0]:
+                        print("查詢成功！結果:")
+                        for i, doc_id in enumerate(results['ids'][0]):
+                            metadata = results['metadatas'][0][i]
+                            distance = results['distances'][0][i]
+                            document = results['documents'][0][i]
+                            print(f"  結果 {i+1}: (ID: {doc_id}, 距離: {distance:.4f})")
+                            print(f"    標題: {metadata.get('title', 'N/A')}")
+                            print(f"    內容: {document[:120].replace('\n', ' ')}...")
+                    else:
+                        print("  未找到任何結果。")
+
+                except Exception as e:
+                    print(f"查詢失敗: {e}")
+
+                import traceback
+                print(f"\n✗ 查詢時發生嚴重錯誤:")
+                print(str(e))
+                print("\n詳細錯誤追蹤:")
+                traceback.print_exc()
         else:
             print("  集合為空")
             

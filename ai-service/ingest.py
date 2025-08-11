@@ -136,8 +136,15 @@ def load_rule_ref_documents(script_dir: str) -> List[Dict[str, Any]]:
     return documents
 
 def main():
+    # --- 路徑設定 ---
+    # 建立絕對路徑，確保無論從哪裡執行，路徑都正確
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(script_dir, 'chroma_db')
+    db_version_file = os.path.join(script_dir, "db_version.txt")
+    scenarios_path = os.path.join(script_dir, '..', 'app-server', 'scenarios.json')
+    meta_info_path = os.path.join(script_dir, 'meta_info.json')
+
     # 檢查資料庫版本
-    db_version_file = "db_version.txt"
     current_version = "1.0"
     try:
         if os.path.exists(db_version_file):
@@ -168,13 +175,13 @@ def main():
     except Exception as e:
         print(f"寫入資料庫版本時發生錯誤: {e}")
 
-    # Initialize ChromaDB client (使用持久化客戶端)
-    client = chromadb.PersistentClient(path="./chroma_db")
+    # Initialize ChromaDB client (使用持久化客戶端與絕對路徑)
+    client = chromadb.PersistentClient(path=db_path)
 
     # 設定嵌入函數，確保與main.py一致
     sentence_transformer_ef = embedding_functions.OllamaEmbeddingFunction(
         model_name="mxbai-embed-large",
-        url="http://localhost:11434/api",
+        url="http://localhost:11434",
     )
     
     # 先清空舊有集合以避免id衝突問題
@@ -194,10 +201,6 @@ def main():
 
     # --- Load all data sources ---
     all_documents = []
-
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    scenarios_path = os.path.join(script_dir, '../app-server/scenarios.json')
-    meta_info_path = os.path.join(script_dir, 'meta_info.json')
 
     # 1. Load scenarios from scenarios.json
     with open(scenarios_path, 'r', encoding='utf-8') as f:
@@ -346,24 +349,30 @@ def main():
     # --- Process and ingest all documents ---
     print(f"總共有 {len(all_documents)} 筆文檔需要導入")
     
+    import time
+
+    max_retries = 5
+    retry_delay = 10  # seconds
+
     for doc in all_documents:
-        try:
-            # Generate embedding using Ollama (確保使用與main.py一致的模型)
-            print(f"正在為文檔 {doc['metadata'].get('title', doc['id'])} 生成向量...")
-            response = ollama.embeddings(model='mxbai-embed-large', prompt=doc['content'])
-            embedding = response["embedding"]
-            print(f"向量維度: {len(embedding)}")
-            
-            # Add to ChromaDB collection
-            collection.add(
-                ids=[doc['id']],
-                embeddings=[embedding],
-                documents=[doc['content']],
-                metadatas=[doc['metadata']]
-            )
-            print(f"成功導入文檔: {doc['metadata'].get('title', doc['id'])} ")
-        except Exception as e:
-            print(f"導入文檔失敗 {doc['id']}: {str(e)}")
+        for attempt in range(max_retries):
+            try:
+                # The collection will automatically use the OllamaEmbeddingFunction to generate the embedding.
+                print(f"(嘗試 {attempt + 1}/{max_retries}) 正在為文檔 {doc['metadata'].get('title', doc['id'])} 生成向量並導入...")
+                collection.add(
+                    ids=[doc['id']],
+                    documents=[doc['content']],
+                    metadatas=[doc['metadata']]
+                )
+                print(f"  ✓ 成功導入文檔: {doc['metadata'].get('title', doc['id'])}")
+                break  # Success, exit retry loop
+            except Exception as e:
+                print(f"  ✗ 導入失敗: {str(e)}")
+                if attempt < max_retries - 1:
+                    print(f"  ... {retry_delay} 秒後重試 ...")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"  ✗✗✗ 已達最大重試次數，放棄導入文檔: {doc['id']}")
 
     print("所有資料導入完成！")
 
