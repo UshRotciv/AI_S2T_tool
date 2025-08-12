@@ -1,0 +1,66 @@
+# Docker ignore 檔案
+# 排除不需要複製到容器的檔案和目錄
+
+# Git 相關
+.git
+.gitignore
+.gitattributes
+
+# 文件和說明
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# 開發工具配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日誌檔案
+*.log
+logs/
+
+# 環境變數檔案
+.env
+.env.local
+.env.*.local
+
+# 依賴目錄 (會在容器內重新安裝)
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+
+# 建置輸出
+dist/
+build/
+*.egg-info/
+
+# 測試相關
+coverage/
+.nyc_output/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# 暫存檔案
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# 備份檔案
+backup/
+*.backup
+*.bak
+
+# Docker 相關
+Dockerfile*
+docker-compose*
+.dockerignore

@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-08-12T14:01:36.957755",
+  "port_analysis": {
+    "port": 8001,
+    "is_available": true,
+    "process_info": null,
+    "error": null
+  },
+  "service_health": {
+    "port": 8001,
+    "service_running": false,
+    "endpoints_tested": {
+      "/api/status": {
+        "error": "HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/status (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001E60E498BB0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+        "success": false
+      },
+      "/api/ask": {
+        "error": "HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001E60E4994B0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+        "success": false
+      },
+      "/docs": {
+        "error": "HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /docs (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001E60E499DB0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+        "success": false
+      }
+    },
+    "response_times": {},
+    "errors": [
+      "/api/status: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/status (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001E60E498BB0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "/api/ask: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001E60E4994B0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))",
+      "/docs: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /docs (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001E60E499DB0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))"
+    ]
+  },
+  "recommendations": [],
+  "severity": "INFO"
+}

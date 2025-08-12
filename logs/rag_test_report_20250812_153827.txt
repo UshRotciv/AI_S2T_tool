@@ -1,0 +1,40 @@
+RAG System Test Report
+==================================================
+Test Date: 2025-08-12 15:38:27
+Total Tests: 16
+
+Test Summary:
+  PASSED: 3
+  FAILED: 13
+  SUCCESS RATE: 18.8%
+
+Detailed Results:
+------------------------------
+✓ connectivity_ollama: PASS
+✗ connectivity_ai_service: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/status (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA1990>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ connectivity_app_server: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA1EA0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ connectivity_react_client: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=3000): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA23B0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✓ ollama_models_list: PASS
+✗ ollama_model_mxbai-embed-large_generation: FAIL
+✓ ollama_model_qwen2_generation: PASS
+✗ ai_service_endpoint_status: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/status (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA2FB0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ ai_service_endpoint_health: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/health (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA2830>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ ai_service_endpoint_docs: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /docs (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA2C80>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ database_connectivity: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/database/status (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA26B0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ rag_query_simple_question: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/query (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA1F90>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ rag_query_document_specific: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/query (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA1AB0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ rag_query_technical_question: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/query (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA16C0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ rag_query_empty_query: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/query (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA0C40>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))
+✗ rag_query_very_long_query: FAIL
+    Error: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/query (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002D6DBBA29B0>: Failed to establish a new connection: [WinError 10061] 無法連線，因為目標電腦拒絕連線。'))

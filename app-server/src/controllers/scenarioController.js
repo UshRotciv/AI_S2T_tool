@@ -73,7 +73,7 @@ const askQuestion = async (req, res) => {
             return handleError(res, new Error('Question is required.'), 400);
         }
         // Forward the question to the Python AI service
-        const aiServiceResponse = await axios.post('http://localhost:8000/api/ask', {
+        const aiServiceResponse = await axios.post('http://localhost:8001/api/ask', {
             question: question
         });
 

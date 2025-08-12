@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  # AI 服務 - RAG 核心
+  ai-service:
+    build: ./ai-service
+    container_name: confidential-ai-service
+    environment:
+      - AI_PORT=8001
+      - CHROMA_DIR=/app/chroma_db
+      - PYTHONPATH=/app
+      - CHROMA_TELEMETRY_ENABLED=false
+    volumes:
+      - ./ai-service:/app
+      - ai-chroma-data:/app/chroma_db
+      - ./rule_ref:/app/rule_ref:ro
+    ports:
+      - "8001:8001"
+    networks:
+      - confidential-ai-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/status', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # 應用伺服器 - CRUD API
+  app-server:
+    build: ./app-server
+    container_name: confidential-app-server
+    environment:
+      - NODE_ENV=production
+      - APP_PORT=3001
+      - SQLITE_DB_PATH=/app/sqlite/db.sqlite
+      - AI_SERVICE_URL=http://ai-service:8001
+    volumes:
+      - ./app-server:/app
+      - app-sqlite-data:/app/sqlite
+    ports:
+      - "3001:3001"
+    networks:
+      - confidential-ai-network
+    depends_on:
+      ai-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # 前端服務 (可選，用於開發環境)
+  # client:
+  #   build: ./client
+  #   container_name: confidential-client
+  #   environment:
+  #     - VITE_APP_SERVER_URL=http://localhost:3001
+  #   volumes:
+  #     - ./client:/app
+  #   ports:
+  #     - "5173:5173"
+  #   networks:
+  #     - confidential-ai-network
+  #   depends_on:
+  #     - app-server
+  #   restart: unless-stopped
+
+# 網路設定
+networks:
+  confidential-ai-network:
+    driver: bridge
+    name: confidential-ai-network
+
+# 資料卷設定
+volumes:
+  ai-chroma-data:
+    name: confidential-ai-chroma-data
+    driver: local
+  app-sqlite-data:
+    name: confidential-app-sqlite-data
+    driver: local

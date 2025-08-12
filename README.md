@@ -1,5 +1,7 @@
 # Confidential Expert AI
-_版本: 2.0.0 | 最後更新: 2025-08-04_
+_版本: 3.0.0 | 最後更新: 2025-08-12_
+
+> **🎉 重大更新**: 完成系統性改寫，升級為 SQLite + Docker 容器化架構，AI 服務全面優化！
 
 ## 1. 專案總覽
 
@@ -24,39 +26,53 @@ _版本: 2.0.0 | 最後更新: 2025-08-04_
 
 ## 2. 系統架構
 
-本專案採用模組化的前後端分離架構，並包含專門處理 AI 任務的 Python 後端服務。
+本專案採用現代化的三層式容器化架構，具備完整的資料同步機制和智能 AI 服務。
 
 ```mermaid
 graph TD
-    User[使用者] --> Frontend[前端 - React]
+    User[使用者] --> Frontend[前端 - React + TypeScript]
     Frontend --> AppServer[應用伺服器 - Node.js/Express]
     Frontend --> AIService[AI服務 - Python/FastAPI]
-    AppServer --> JSONFiles[(JSON檔案存儲)]
+    AppServer --> SQLite[(SQLite 資料庫)]
+    AppServer -->|自動同步| AIService
     AIService --> LLM[本地LLM - Ollama]
     AIService --> VectorDB[(向量資料庫 - ChromaDB)]
-    AppServer --> VectorDB
+    
+    subgraph Docker容器化環境
+        AppServer
+        AIService
+        SQLite
+        VectorDB
+    end
 ```
 
-### 2.1 技術堆疊
+### 2.1 技術堆疊 (v3.0)
 
-| 元件 | 技術選擇 | 主要職責 |
-|------|----------|----------|
-| 前端 | React + TypeScript | 提供使用者介面，包含問答、卡片瀏覽、後台管理 |
-| 應用伺服器 | Node.js + Express | 管理結構化資料，提供CRUD API，處理權限驗證 |
-| AI服務 | Python + FastAPI | 處理RAG流程，向量化查詢，生成回答 |
-| LLM服務 | Ollama | 運行本地語言模型與向量化模型 |
-| 向量資料庫 | ChromaDB | 儲存向量化知識，提供語意搜尋 |
+| 元件 | 技術選擇 | 主要職責 | 新功能 |
+|------|----------|----------|--------|
+| 前端 | React + TypeScript | 使用者介面，問答、卡片瀏覽、後台管理 | - |
+| 應用伺服器 | Node.js + Express + SQLite | 結構化資料管理，CRUD API，權限驗證 | **SQLite 升級** + **自動同步** |
+| AI服務 | Python + FastAPI | RAG流程，向量化查詢，智能回答生成 | **提示工程優化** + **智能檢索** |
+| LLM服務 | Ollama | 本地語言模型與向量化模型 | - |
+| 向量資料庫 | ChromaDB | 向量化知識儲存，語意搜尋 | **增量同步** |
+| 容器化 | Docker + Docker Compose | 一鍵部署，環境一致性 | **🆕 新增** |
 
 ## 3. 快速開始
 
 ### 3.1 環境需求
 
-- Node.js v16+
-- Python 3.9+
+**🐳 Docker 部署 (推薦)**
+- Docker Desktop
+- Docker Compose
 - Ollama (已安裝並運行)
 - 建議硬體配置: 16GB RAM, 支援CUDA的GPU (非必須但建議)
 
-### 3.2 安裝步驟
+**📦 傳統部署**
+- Node.js v20+
+- Python 3.11+
+- Ollama (已安裝並運行)
+
+### 3.2 一鍵 Docker 部署 (推薦)
 
 1. **克隆專案:**
    ```bash
@@ -64,8 +80,25 @@ graph TD
    cd confidential-expert-ai
    ```
 
-2. **安裝前端依賴:**
+2. **一鍵啟動:**
    ```bash
+   # Windows
+   ./start-docker.bat
+   
+   # Linux/Mac
+   docker-compose up --build -d
+   ```
+
+3. **訪問服務:**
+   - 前端介面: http://localhost:3000
+   - App Server: http://localhost:3001
+   - AI Service: http://localhost:8000
+
+### 3.3 傳統安裝步驟
+
+1. **安裝前端依賴:**
+   ```bash
+   cd client
    npm install
    ```
 

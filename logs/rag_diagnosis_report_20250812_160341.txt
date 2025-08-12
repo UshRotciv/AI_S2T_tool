@@ -1,0 +1,47 @@
+RAG Architecture Diagnosis Report
+==================================================
+Diagnosis Date: 2025-08-12 16:03:41
+Total Tests: 12
+
+Test Summary:
+  PASSED: 7
+  FAILED: 5
+  SUCCESS RATE: 58.3%
+
+CRITICAL ISSUES FOUND:
+------------------------------
+❌ database_connection
+   Error: No database info in health response
+❌ rag_query_simple_test
+   Error: {"detail":"Not Found"}
+❌ rag_query_document_query
+   Error: {"detail":"Not Found"}
+❌ rag_query_empty_query
+   Error: {"detail":"Not Found"}
+❌ frontend_backend_integration
+   Error: {"success":false,"message":"AI service unavailable","error":""}
+
+Detailed Test Results:
+------------------------------
+✅ ollama_connectivity: PASS
+✅ ai_service_connectivity: PASS
+✅ app_server_connectivity: PASS
+✅ ollama_generation_test: PASS
+✅ ai_service_status: PASS
+✅ ai_service_health: PASS
+✅ ai_service_docs: PASS
+❌ database_connection: FAIL
+    Error: No database info in health response
+❌ rag_query_simple_test: FAIL
+    Error: {"detail":"Not Found"}
+❌ rag_query_document_query: FAIL
+    Error: {"detail":"Not Found"}
+❌ rag_query_empty_query: FAIL
+    Error: {"detail":"Not Found"}
+❌ frontend_backend_integration: FAIL
+    Error: {"success":false,"message":"AI service unavailable","error":""}
+
+RECOMMENDATIONS:
+--------------------
+• Verify ChromaDB connection and data loading
+• Check App Server to AI Service communication

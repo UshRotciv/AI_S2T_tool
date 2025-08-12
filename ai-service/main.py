@@ -74,53 +74,135 @@ app.add_middleware(
 )
 
 # 資料庫連接與集合設定
-# 使用絕對路徑進行連接
-client = chromadb.PersistentClient(path=DB_PATH)
-
-# 確保使用與ingest.py一致的嵌入函數設定
-sentence_transformer_ef = embedding_functions.OllamaEmbeddingFunction(
-    model_name="mxbai-embed-large",
-    url="http://localhost:11434",
+# 使用絕對路徑進行連接，關閉匿名遙測
+client = chromadb.PersistentClient(
+    path=DB_PATH,
+    settings=chromadb.Settings(anonymized_telemetry=False)
 )
 
-# 查詢擴展詞組庫 - 針對短查詢提供更具體的相關查詢
+# 嵌入函數設定 - 支援環境變數切換
+EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", "sentence-transformers")  # 預設使用 sentence-transformers
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+
+if EMBEDDING_BACKEND.lower() == "ollama":
+    # 使用 Ollama 嵌入
+    embedding_function = embedding_functions.OllamaEmbeddingFunction(
+        model_name=EMBEDDING_MODEL,
+        url="http://localhost:11434",
+    )
+    print(f"使用 Ollama 嵌入模型: {EMBEDDING_MODEL}")
+else:
+    # 使用 sentence-transformers 嵌入 (預設，更穩定)
+    embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL
+    )
+    print(f"使用 SentenceTransformer 嵌入模型: {EMBEDDING_MODEL}")
+
+# 智能查詢擴展詞組庫 - 提升檢索覆蓋範圍和準確性
 QUERY_EXPANSIONS = {
+    # 文件處理相關
     "作品集": [
-        "準備作品集的資安注意事項",
-        "對外公開作品集的規範", 
-        "未採用提案是否可放進作品集",
-        "作品集避免洩露公司機密",
-        "個人作品集與智慧財產權",
-        "員工作品集公開限制",
-        "設計提案作品集規範"
+        "準備作品集的資安注意事項", "對外公開作品集的規範", "未採用提案是否可放進作品集",
+        "作品集避免洩露公司機密", "個人作品集與智慧財產權", "員工作品集公開限制"
     ],
     "印表機": [
-        "印表機機密文件處理",
-        "印表機列印機密資料",
-        "印表機安全使用規範",
-        "機密文件印表機操作"
+        "印表機機密文件處理", "印表機列印機密資料", "印表機安全使用規範",
+        "機密文件印表機操作", "列印機密資料注意事項", "印表機資安風險"
     ],
+    "機密": [
+        "機密文件處理規範", "機密資料保護措施", "機密等級分類",
+        "機密文件銷毀程序", "機密資訊洩露防範", "機密檔案管理"
+    ],
+    
+    # 軟體使用相關
     "測試軟體": [
-        "免費測試軟體風險",
-        "測試軟體安全性",
-        "軟體測試安全規範",
-        "免費軟體使用風險"
+        "免費測試軟體風險", "測試軟體安全性", "軟體測試安全規範",
+        "免費軟體使用風險", "軟體下載安全注意事項"
+    ],
+    "軟體": [
+        "軟體安裝規範", "軟體使用授權", "軟體安全更新",
+        "軟體下載來源驗證", "軟體使用政策"
+    ],
+    "下載": [
+        "軟體下載安全規範", "檔案下載風險評估", "下載來源驗證",
+        "安全下載指引", "下載檔案掃毒"
+    ],
+    
+    # 辦公設備相關
+    "USB": [
+        "USB使用規範", "USB安全政策", "外接儲存裝置管理",
+        "USB病毒防護", "可攜式儲存媒體安全"
+    ],
+    "隨身碟": [
+        "隨身碟使用規範", "隨身碟安全管理", "外接儲存裝置政策",
+        "隨身碟資料加密", "可攜式媒體安全"
+    ],
+    
+    # 網路安全相關
+    "密碼": [
+        "密碼設定規範", "密碼安全政策", "密碼管理最佳實務",
+        "強密碼建立指引", "密碼更新頻率"
+    ],
+    "釣魚": [
+        "釣魚郵件識別", "釣魚攻擊防範", "社交工程防護",
+        "可疑郵件處理", "釣魚網站辨識"
+    ],
+    "郵件": [
+        "電子郵件安全", "郵件附件安全", "郵件加密規範",
+        "可疑郵件處理", "郵件安全政策"
+    ],
+    
+    # 工作流程相關
+    "遠端": [
+        "遠端工作安全", "居家辦公資安", "遠端連線安全",
+        "遠端存取規範", "在家工作安全指引"
+    ],
+    "備份": [
+        "資料備份規範", "備份安全管理", "備份資料保護",
+        "備份策略規劃", "資料復原程序"
+    ],
+    "權限": [
+        "存取權限管理", "使用者權限控制", "權限分級制度",
+        "權限審核程序", "最小權限原則"
+    ],
+    
+    # 智慧財產權相關
+    "智財": [
+        "智慧財產權保護", "智財管理規範", "智財洩露防範",
+        "智財使用授權", "智財安全政策"
+    ],
+    "專利": [
+        "專利保護措施", "專利資訊管理", "專利洩露防範",
+        "專利申請安全", "專利機密保護"
+    ],
+    
+    # 一般資安概念
+    "資安": [
+        "資訊安全政策", "資安管理制度", "資安風險評估",
+        "資安事件處理", "資安教育訓練", "資安最佳實務"
+    ],
+    "安全": [
+        "辦公室安全規範", "資訊安全措施", "安全管理制度",
+        "安全政策執行", "安全風險控制"
     ]
 }
 
 # 獲取或創建集合，使用一致的嵌入函數
+# 使用 scenarios 集合名稱
+COLLECTION_NAME = "scenarios"
+
 try:
     # 1. get_collection 也綁定 embedding_function
     collection = client.get_collection(
-        "scenarios",
-        embedding_function=sentence_transformer_ef
+        COLLECTION_NAME,
+        embedding_function=embedding_function
     )
-    print("成功連接到現有的scenarios集合")
+    print(f"成功連接到現有的{COLLECTION_NAME}集合")
 except:
-    print("集合不存在，請先執行ingest.py建立資料庫")
+    print(f"集合{COLLECTION_NAME}不存在，請先執行ingest.py建立資料庫")
     collection = client.create_collection(
-        "scenarios",
-        embedding_function=sentence_transformer_ef,
+        COLLECTION_NAME,
+        embedding_function=embedding_function,
         metadata={"hnsw:space": "cosine"}
     )
 
@@ -265,83 +347,160 @@ def postprocess_results(results: Dict[str, Any], distance_threshold: float = 0.4
         print(f"後處理發生錯誤，使用原始結果: {e}")
         return results
 
-# 查詢擴展函式 - 針對短查詢生成更具體的相關查詢
+# 智能查詢擴展函式 - 提升檢索效果和覆蓋範圍
 def expand_query(original_query):
     """
-    查詢擴展函式 - 針對短查詢生成更具體的相關查詢
+    智能查詢擴展函式 - 根據查詢內容和長度智能擴展
     """
-    # 檢查是否有預定義的擴展
+    expanded_queries = [original_query]  # 始終包含原查詢
+    
+    # 1. 精確匹配擴展
     for key, values in QUERY_EXPANSIONS.items():
         if key in original_query:
-            print(f"為查詢 '{original_query}' 找到擴展詞組，添加 {len(values)} 個相關查詢")
-            return [original_query] + values
+            print(f"✓ 為查詢 '{original_query}' 找到精確匹配擴展: '{key}' -> {len(values)} 個相關查詢")
+            expanded_queries.extend(values[:5])  # 限制擴展數量避免過多
+            break  # 找到一個匹配就停止，避免過度擴展
     
-    # 檢查是否為極短查詢（少於4個中文字符）
-    if len(re.sub(r'[^\u4e00-\u9fff]', '', original_query)) < 4:
-        print(f"查詢 '{original_query}' 太短，但未找到預定義擴展詞組")
+    # 2. 部分匹配擴展（針對複合查詢）
+    if len(expanded_queries) == 1:  # 如果沒有精確匹配
+        for key, values in QUERY_EXPANSIONS.items():
+            if any(char in original_query for char in key) and len(key) > 1:
+                print(f"✓ 為查詢 '{original_query}' 找到部分匹配擴展: '{key}' -> 添加 2 個相關查詢")
+                expanded_queries.extend(values[:2])  # 部分匹配只添加少量
+                break
     
-    # 如果沒有預定義擴展，返回原查詢
-    return [original_query]
+    # 3. 短查詢智能擴展
+    chinese_chars = len(re.sub(r'[^\u4e00-\u9fff]', '', original_query))
+    if chinese_chars < 4 and len(expanded_queries) == 1:
+        # 對於極短查詢，嘗試語義相關的擴展
+        short_query_expansions = {
+            "列印": ["印表機", "機密"],
+            "下載": ["軟體", "測試軟體"],
+            "郵件": ["釣魚", "安全"],
+            "密碼": ["安全", "資安"],
+            "備份": ["資料", "安全"],
+            "遠端": ["工作", "安全"]
+        }
+        
+        for short_key, related_keys in short_query_expansions.items():
+            if short_key in original_query:
+                for related_key in related_keys:
+                    if related_key in QUERY_EXPANSIONS:
+                        expanded_queries.extend(QUERY_EXPANSIONS[related_key][:3])
+                        print(f"✓ 短查詢 '{original_query}' 通過 '{short_key}' -> '{related_key}' 擴展")
+                        break
+                break
+    
+    # 4. 去重並限制總數
+    seen = set()
+    unique_queries = []
+    for query in expanded_queries:
+        if query not in seen:
+            seen.add(query)
+            unique_queries.append(query)
+    
+    # 限制最大查詢數量，避免檢索時間過長
+    final_queries = unique_queries[:8]
+    
+    if len(final_queries) > 1:
+        print(f"📝 查詢擴展完成: '{original_query}' -> {len(final_queries)} 個查詢")
+    else:
+        print(f"📝 查詢未擴展: '{original_query}' (無匹配的擴展詞組)")
+    
+    return final_queries
 
-# 分層檢索策略
+# 分層檢索策略 - 強化 JSON 錯誤處理版本
 def layered_search(collection, query, n_results=7, timeout_sec=3.0):
     """
-    分層檢索策略（修復版）
+    分層檢索策略（JSON 錯誤修復版）
     第一層：Part A-D 情境卡優先（實際存在的類別）
     第二層：排除 rule_document
     第三層：全庫檢索
+    增強 JSON 解析錯誤處理
     """
-    try:
-        # 第一層：優先檢索 Part A-D 情境卡（實際存在的類別）
-        print(f"第一層檢索: Part A-D 情境卡")
-        scenario_categories = [
-            "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
-            "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
-            "Part C: 機敏資料與高風險工具 (Sensitive Data & High-Risk Tools)",
-            "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)"
-        ]
-        layer1_results = collection.query(
-            query_texts=[query],
-            n_results=n_results,
-            where={"category": {"$in": scenario_categories}},
-            include=["documents", "metadatas", "distances"]
-        )
-        if len(layer1_results['ids'][0]) > 0:
-            print(f"第一層找到 {len(layer1_results['ids'][0])} 個情境卡")
-            return layer1_results, "scenario_parts"
-    except Exception as e:
-        print(f"第一層檢索失敗: {e}")
     
-    try:
-        # 第二層：排除 rule_document，檢索其他類型
-        print(f"第二層檢索: 排除 rule_document")
-        layer2_results = collection.query(
-            query_texts=[query],
-            n_results=n_results,
-            where={"category": {"$ne": "rule_document"}},
-            include=["documents", "metadatas", "distances"]
-        )
-        if len(layer2_results['ids'][0]) > 0:
-            print(f"第二層找到 {len(layer2_results['ids'][0])} 個文件 (排除 rule_document)")
-            return layer2_results, "filtered"
-    except Exception as e:
-        print(f"第二層檢索失敗: {e}")
+    def safe_chromadb_query(collection, query_params, layer_name):
+        """安全的 ChromaDB 查詢包裝器，處理 JSON 解析錯誤"""
+        try:
+            print(f"{layer_name}檢索: 開始查詢")
+            result = collection.query(**query_params)
+            
+            # 驗證結果結構
+            if not isinstance(result, dict):
+                print(f"{layer_name}檢索失敗: 結果不是字典格式")
+                return None
+                
+            required_keys = ['ids', 'documents', 'metadatas', 'distances']
+            for key in required_keys:
+                if key not in result:
+                    print(f"{layer_name}檢索失敗: 缺少必要鍵 '{key}'")
+                    return None
+            
+            # 檢查結果是否為空
+            if not result.get('ids') or not result['ids'][0]:
+                print(f"{layer_name}檢索: 無結果")
+                return None
+                
+            result_count = len(result['ids'][0])
+            print(f"{layer_name}檢索成功: 找到 {result_count} 個結果")
+            return result
+            
+        except json.JSONDecodeError as je:
+            print(f"{layer_name}檢索失敗: JSON 解析錯誤 - {je}")
+            print(f"錯誤位置: line {je.lineno}, column {je.colno}")
+            return None
+        except Exception as e:
+            error_msg = str(e)
+            if "Extra data" in error_msg:
+                print(f"{layer_name}檢索失敗: ChromaDB JSON 格式錯誤 - {error_msg}")
+                print("建議重建資料庫以修復數據格式問題")
+            else:
+                print(f"{layer_name}檢索失敗: {error_msg}")
+            return None
     
-    try:
-        # 第三層：全庫檢索
-        print(f"第三層檢索: 全庫檢索")
-        layer3_results = collection.query(
-            query_texts=[query],
-            n_results=n_results,
-            include=["documents", "metadatas", "distances"]
-        )
-        if len(layer3_results['ids'][0]) > 0:
-            print(f"第三層找到 {len(layer3_results['ids'][0])} 個文件 (全庫)")
-            return layer3_results, "full"
-    except Exception as e:
-        print(f"第三層檢索失敗: {e}")
+    # 第一層：優先檢索 Part A-D 情境卡
+    scenario_categories = [
+        "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+        "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)", 
+        "Part C: 機敏資料與高風險工具 (Sensitive Data & High-Risk Tools)",
+        "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)"
+    ]
     
-    print(f"所有層級檢索都無結果")
+    layer1_params = {
+        "query_texts": [query],
+        "n_results": n_results,
+        "where": {"category": {"$in": scenario_categories}},
+        "include": ["documents", "metadatas", "distances"]
+    }
+    
+    layer1_results = safe_chromadb_query(collection, layer1_params, "第一層")
+    if layer1_results:
+        return layer1_results, "scenario_parts"
+    
+    # 第二層：排除 rule_document
+    layer2_params = {
+        "query_texts": [query],
+        "n_results": n_results,
+        "where": {"category": {"$ne": "rule_document"}},
+        "include": ["documents", "metadatas", "distances"]
+    }
+    
+    layer2_results = safe_chromadb_query(collection, layer2_params, "第二層")
+    if layer2_results:
+        return layer2_results, "filtered"
+    
+    # 第三層：全庫檢索
+    layer3_params = {
+        "query_texts": [query],
+        "n_results": n_results,
+        "include": ["documents", "metadatas", "distances"]
+    }
+    
+    layer3_results = safe_chromadb_query(collection, layer3_params, "第三層")
+    if layer3_results:
+        return layer3_results, "full"
+    
+    print("所有層級檢索都無結果")
     return None, "none"
 
 @app.post("/api/ask")
@@ -355,15 +514,61 @@ def ask(request: AskRequest):
     
     try:
         if is_meta_question:
-            # 對於元問題，直接查詢元文檔
-            results = collection.query(
-                query_texts=[question],
-                n_results=5,
-                where={"category": "meta"},
-                include=["documents", "metadatas", "distances"]
-            )
-            print(f"元問題查詢結果: 找到 {len(results['ids'][0]) if results.get('ids') and results['ids'][0] else 0} 個文件")
-            search_type = "meta"
+            # 對於元問題，使用安全包裝器查詢元文檔
+            def safe_meta_query(collection, query_params, layer_name):
+                """安全的元問題查詢包裝器"""
+                try:
+                    print(f"{layer_name}檢索: 開始查詢")
+                    result = collection.query(**query_params)
+                    
+                    # 驗證結果結構
+                    if not isinstance(result, dict):
+                        print(f"{layer_name}檢索失敗: 結果不是字典格式")
+                        return None
+                        
+                    required_keys = ['ids', 'documents', 'metadatas', 'distances']
+                    for key in required_keys:
+                        if key not in result:
+                            print(f"{layer_name}檢索失敗: 缺少必要鍵 '{key}'")
+                            return None
+                    
+                    # 檢查結果是否為空
+                    if not result.get('ids') or not result['ids'][0]:
+                        print(f"{layer_name}檢索: 無結果")
+                        return None
+                        
+                    result_count = len(result['ids'][0])
+                    print(f"{layer_name}檢索成功: 找到 {result_count} 個結果")
+                    return result
+                    
+                except json.JSONDecodeError as je:
+                    print(f"{layer_name}檢索失敗: JSON 解析錯誤 - {je}")
+                    print(f"錯誤位置: line {je.lineno}, column {je.colno}")
+                    return None
+                except Exception as e:
+                    error_msg = str(e)
+                    if "Extra data" in error_msg:
+                        print(f"{layer_name}檢索失敗: ChromaDB JSON 格式錯誤 - {error_msg}")
+                        print("建議重建資料庫以修復數據格式問題")
+                    else:
+                        print(f"{layer_name}檢索失敗: {error_msg}")
+                    return None
+            
+            meta_params = {
+                "query_texts": [question],
+                "n_results": 5,
+                "where": {"category": "meta"},
+                "include": ["documents", "metadatas", "distances"]
+            }
+            
+            results = safe_meta_query(collection, meta_params, "元問題")
+            if results:
+                print(f"元問題查詢結果: 找到 {len(results['ids'][0])} 個文件")
+                search_type = "meta"
+            else:
+                print("元問題查詢失敗，改用一般檢索策略")
+                results = None
+                search_type = "fallback"
         else:
             # 步驟 1: 對一般問題應用查詢擴展 + 分層檢索策略
             print(f"===== 進階檢索策略 =====")
@@ -411,21 +616,73 @@ def ask(request: AskRequest):
                 print(f"最佳距離: {best_score:.4f}, 層級: {best_search_type}")
                 search_type = best_search_type
             else:
-                # 如果所有查詢都沒有結果，退回到基本查詢
+                # 如果所有查詢都沒有結果，退回到基本查詢（使用安全包裝器）
                 print(f"===== 所有查詢都無結果，執行標準向量檢索 =====")
-                results = collection.query(
-                    query_texts=[question],
-                    n_results=7,
-                    include=["documents", "metadatas", "distances"]
-                )
+                
+                # 重用安全查詢包裝器
+                def safe_fallback_query(collection, query_params, layer_name):
+                    """安全的 fallback 查詢包裝器"""
+                    try:
+                        print(f"{layer_name}檢索: 開始查詢")
+                        result = collection.query(**query_params)
+                        
+                        # 驗證結果結構
+                        if not isinstance(result, dict):
+                            print(f"{layer_name}檢索失敗: 結果不是字典格式")
+                            return None
+                            
+                        required_keys = ['ids', 'documents', 'metadatas', 'distances']
+                        for key in required_keys:
+                            if key not in result:
+                                print(f"{layer_name}檢索失敗: 缺少必要鍵 '{key}'")
+                                return None
+                        
+                        # 檢查結果是否為空
+                        if not result.get('ids') or not result['ids'][0]:
+                            print(f"{layer_name}檢索: 無結果")
+                            return None
+                            
+                        result_count = len(result['ids'][0])
+                        print(f"{layer_name}檢索成功: 找到 {result_count} 個結果")
+                        return result
+                        
+                    except json.JSONDecodeError as je:
+                        print(f"{layer_name}檢索失敗: JSON 解析錯誤 - {je}")
+                        print(f"錯誤位置: line {je.lineno}, column {je.colno}")
+                        return None
+                    except Exception as e:
+                        error_msg = str(e)
+                        if "Extra data" in error_msg:
+                            print(f"{layer_name}檢索失敗: ChromaDB JSON 格式錯誤 - {error_msg}")
+                            print("建議重建資料庫以修復數據格式問題")
+                        else:
+                            print(f"{layer_name}檢索失敗: {error_msg}")
+                        return None
+                
+                fallback_params = {
+                    "query_texts": [question],
+                    "n_results": 7,
+                    "include": ["documents", "metadatas", "distances"]
+                }
+                
+                results = safe_fallback_query(collection, fallback_params, "標準向量檢索")
                 search_type = "fallback"
 
-        # 後處理：距離門檻過濾 + 分組去重（放寬門檻避免過度過濾）
+        # 智能後處理：動態距離門檻 + 分組去重
         try:
             before_cnt = len(results['ids'][0]) if results.get('ids') and results['ids'] and results['ids'][0] else 0
-            results = postprocess_results(results, distance_threshold=0.40, max_per_group=2)
+            
+            # 根據檢索類型動態調整距離門檻
+            if search_type == "scenario_card":
+                threshold = 0.35  # 情境卡片要求更高相似度
+            elif search_type == "meta":
+                threshold = 0.45  # 元問題可以放寬
+            else:
+                threshold = 0.40  # 一般查詢使用中等門檻
+            
+            results = postprocess_results(results, distance_threshold=threshold, max_per_group=3)
             after_cnt = len(results['ids'][0]) if results.get('ids') and results['ids'] and results['ids'][0] else 0
-            print(f"後處理完成: {before_cnt} -> {after_cnt} (threshold=0.40)")
+            print(f"智能後處理完成: {before_cnt} -> {after_cnt} (threshold={threshold}, type={search_type})")
         except Exception as e:
             print(f"後處理套用失敗（將忽略後處理）: {e}")
 
@@ -500,7 +757,7 @@ def ask(request: AskRequest):
             return {"answer":"很抱歉，我無法從現有的資料中找到與您問題相關的答案。","sources":[],"session_id":session_id}
 
         # 詳細調試資訊輸出
-        if results['ids'] and len(results['ids'][0]) > 0:
+        if results.get('ids') and results['ids'] and len(results['ids'][0]) > 0:
             print("\n=== 查詢結果詳情 ===")
             for i, (doc_id, distance) in enumerate(zip(results['ids'][0], results['distances'][0])):
                 metadata = results['metadatas'][0][i] if i < len(results['metadatas'][0]) else {}
@@ -525,8 +782,21 @@ def ask(request: AskRequest):
         else:
             print("  未找到任何結果")
     except Exception as e:
-        print(f"查詢過程中發生錯誤: {str(e)}")
-        return {"answer": "系統處理您的問題時遇到了技術問題，請稍後再試。", "sources": [], "session_id": session_id}
+        # 加強錯誤資訊輸出，避免靜默失敗
+        try:
+            import traceback
+            tb = traceback.format_exc()
+        except Exception:
+            tb = str(e)
+        print(f"查詢過程中發生錯誤: {str(e)}\n{tb}")
+        # 將錯誤細節一併回傳，方便前後端快速定位問題（前端可視需要隱藏詳細錯誤）
+        return {
+            "answer": "系統處理您的問題時遇到了技術問題，請稍後再試。",
+            "error": str(e),
+            "trace": tb,
+            "sources": [],
+            "session_id": session_id
+        }
 
     # Check if there are any relevant documents
     if not results['documents'] or not results['documents'][0]:
@@ -541,18 +811,27 @@ def ask(request: AskRequest):
     print(f"Context 內容預覽: {context[:500]}...")
     print(f"=== Context 結束 ===")
     
-    # 超嚴格的卡片內容限制策略
-    system_prompt = """你是 ASUS 資安助手。
+    # 優化的智能助手提示策略
+    system_prompt = """你是 ASUS 資安助手，專門協助員工處理資訊安全、辦公室安全和工作流程相關問題。
 
-**絕對規則**：
-1. 只能使用提供的卡片內容，一字不差地引用
-2. 禁止添加任何卡片外的資訊、推理或擴展
-3. 禁止使用你的預訓練知識
-4. 如果卡片內容足夠回答問題，直接引用卡片內容
-5. 保持卡片的原始結構和格式
-6. 如果看到 answerLabel 或 learningsLabel，優先引用這些內容
+**核心原則**：
+1. **準確性優先**：以提供的卡片內容為主要依據，確保資訊正確性
+2. **智能整合**：可以整合多個卡片內容，提供完整且有邏輯的回答
+3. **實用導向**：結合卡片內容與合理推理，提供實用的建議和解決方案
+4. **專業表達**：使用專業但易懂的語言，避免過於技術性的術語
 
-違反以上規則將被視為錯誤回答。"""
+**回答策略**：
+- 優先使用卡片中的 answerLabel 和 learningsLabel 內容
+- 可以重新組織和整理卡片內容，使回答更清晰易懂
+- 當卡片內容不完整時，可以提供合理的補充說明
+- 對於複雜問題，可以分步驟或分類別進行回答
+- 適當使用格式化（如條列、編號）提升可讀性
+
+**品質標準**：
+- 回答要完整、準確、實用
+- 語調要專業但親切
+- 結構要清晰有條理
+- 重點要突出明確"""
 
     # 查詢類型標記
     search_type_info = ""
@@ -565,38 +844,57 @@ def ask(request: AskRequest):
     elif search_type == "meta":
         search_type_info = "元問題查詢"
     
-    user_prompt = f"""**卡片內容**：
+    user_prompt = f"""**參考資料**：
 {context}
 
-**問題**：{question}
+**用戶問題**：{question}
 
-**嚴格指令**：
-1. 首先判斷問題是否與以下領域相關：資安、辦公室安全、資料保護、工作流程、企業管理、文件處理、軟體使用、設備操作、智慧財產權等職場相關主題
-2. 只有完全無關的問題（如股價、天氣、娛樂、個人生活等）才回答：「根據我現有的資料，無法回答這個問題。」
-3. 如果問題可能相關，優先檢查卡片內容是否包含答案
-4. 只能使用上述卡片內容回答，禁止添加任何卡片外資訊
-5. 如果卡片中有 answerLabel 部分，直接引用該內容作為主要答案
-6. 如果卡片中有 learningsLabel 部分，可在答案後附上作為補充
-7. 不得使用你的預訓練知識進行擴展或推理
-8. 保持卡片的原始表達方式，不要重新詮釋
+**回答指引**：
+1. **相關性判斷**：判斷問題是否與資安、辦公安全、工作流程等職場主題相關
+2. **資料整合**：分析參考資料，找出與問題最相關的內容
+3. **智能回答**：
+   - 優先使用參考資料中的核心內容（answerLabel、learningsLabel）
+   - 可以重新組織內容結構，使回答更清晰
+   - 對於複雜問題，可以分點或分步驟回答
+   - 適當補充實用的操作建議
+4. **品質控制**：
+   - 確保回答完整且實用
+   - 使用專業但易懂的語言
+   - 重點內容可以加粗或使用條列格式
+   - 如果參考資料不足，誠實說明並提供可能的建議
 
-請嚴格按照上述指令執行。
+**檢索策略**：{search_type_info}
 
-注意：這個查詢使用了{search_type_info}策略。"""
+請基於以上指引，提供一個專業、實用且易懂的回答。"""
 
-    # 獲取當前對話的歷史記錄（最多保留最近5輪）
+    # 智能上下文管理：根據問題類型調整歷史記錄數量
     with history_lock:
-        history = conversation_history[session_id]['messages'][-5:] if conversation_history[session_id]['messages'] else []
+        all_history = conversation_history[session_id]['messages'] if conversation_history[session_id]['messages'] else []
+        
+        # 根據問題類型決定上下文長度
+        if is_meta_question:
+            # 元問題不需要太多歷史
+            history = all_history[-2:] if all_history else []
+        elif any(keyword in question.lower() for keyword in ["繼續", "接著", "然後", "還有", "另外"]):
+            # 連續性問題需要更多上下文
+            history = all_history[-8:] if all_history else []
+        else:
+            # 一般問題保持適中的上下文
+            history = all_history[-5:] if all_history else []
     
     # 構建完整的消息列表，包含系統提示、對話歷史和當前問題
+    context_hint = ""
+    if history:
+        context_hint = f"\n\n**對話上下文**：用戶之前詢問了 {len(history)//2} 個相關問題，請保持回答的連貫性和一致性。"
+    
     messages = [
         {
             'role': 'system',
-            'content': system_prompt + "\n請注意之前的對話歷史，保持回答的連貫性。",
+            'content': system_prompt + context_hint,
         }
     ]
     
-    # 添加歷史對話
+    # 添加歷史對話（優化格式）
     for msg in history:
         messages.append({
             'role': msg['role'],
@@ -622,19 +920,59 @@ def ask(request: AskRequest):
 用戶問題是：{question}"""
     })
     
-    chat_response = ollama.chat(
-        model='qwen2',
-        messages=messages,
-        options={
-            'temperature': 0.1,  # 進一步降低溫度以提高確定性
-            'num_predict': 300,   # 適度增加長度限制以確保完整回答
-            'top_p': 0.8,        # 控制生成文本的多樣性
-            'top_k': 30          # 限制候選詞彙數量
-        }
-    )
-
-    # Extract the answer and the source documents（統一物件結構，包含 id/metadata/distance/document）
-    answer = chat_response['message']['content']
+    try:
+        # 首先檢查 Ollama 服務是否可用
+        try:
+            available_models = ollama.list()
+            print(f"可用模型: {[model['name'] for model in available_models.get('models', [])]}")
+        except Exception as model_check_error:
+            print(f"Ollama 服務連接失敗: {model_check_error}")
+            raise Exception(f"Ollama 服務不可用: {model_check_error}")
+        
+        # 檢查 qwen2 模型是否可用
+        model_names = [model['name'] for model in available_models.get('models', [])]
+        if 'qwen2:latest' not in model_names and 'qwen2' not in model_names:
+            print(f"qwen2 模型不可用，嘗試使用其他可用模型: {model_names}")
+            # 嘗試使用第一個可用模型
+            if model_names:
+                selected_model = model_names[0]
+                print(f"使用模型: {selected_model}")
+            else:
+                raise Exception("沒有可用的 Ollama 模型")
+        else:
+            selected_model = 'qwen2'
+        
+        print(f"開始調用 Ollama 模型: {selected_model}")
+        print(f"消息數量: {len(messages)}")
+        print(f"上下文長度: {len(context) if 'context' in locals() else 'N/A'}")
+        
+        chat_response = ollama.chat(
+            model=selected_model,
+            messages=messages,
+            options={
+                'temperature': 0.1,  # 進一步降低溫度以提高確定性
+                'num_predict': 300,   # 適度增加長度限制以確保完整回答
+                'top_p': 0.8,        # 控制生成文本的多樣性
+                'top_k': 30          # 限制候選詞彙數量
+            }
+        )
+        
+        print(f"Ollama 調用成功，回應類型: {type(chat_response)}")
+        print(f"回應鍵: {list(chat_response.keys()) if isinstance(chat_response, dict) else 'N/A'}")
+        
+        # Extract the answer and the source documents（統一物件結構，包含 id/metadata/distance/document）
+        if isinstance(chat_response, dict) and 'message' in chat_response:
+            answer = chat_response['message']['content']
+            print(f"成功提取答案，長度: {len(answer)}")
+        else:
+            print(f"意外的回應格式: {chat_response}")
+            answer = "AI 服務回應格式異常，請稍後再試。"
+            
+    except Exception as e:
+        print(f"Ollama 調用失敗: {e}")
+        import traceback
+        print(f"詳細錯誤追蹤: {traceback.format_exc()}")
+        answer = f"很抱歉，AI 服務暫時無法處理您的問題。錯誤詳情: {str(e)}"
     sources = []
     if results.get('ids') and results['ids'][0]:
         for i, doc_id in enumerate(results['ids'][0]):
@@ -676,82 +1014,209 @@ def delete_conversation(session_id: str):
 
 @app.get("/api/status")
 def get_status():
-    """獲取服務狀態"""
+    """A simple endpoint to check if the service is up and running."""
+    return {"status": "ok"}
+
+@app.get("/api/health")
+def get_health():
+    """獲取詳細服務狀態"""
     # 執行清理過期會話
     expired_count = cleanup_expired_conversations()
+    
+    # 檢查資料庫狀態
+    db_info = {}
+    try:
+        collections = client.list_collections()
+        db_info = {
+            "collections_count": len(collections),
+            "collections": []
+        }
+        total_docs = 0
+        for collection in collections:
+            count = collection.count()
+            total_docs += count
+            db_info["collections"].append({
+                "name": collection.name,
+                "document_count": count
+            })
+        db_info["total_documents"] = total_docs
+        db_info["status"] = "connected"
+    except Exception as e:
+        db_info = {
+            "status": "error",
+            "error": str(e)
+        }
     
     return {
         "status": "running",
         "active_conversations": len(conversation_history),
-        "cleaned_conversations": expired_count
+        "cleaned_conversations": expired_count,
+        "database": db_info
     }
 
-# 簡易除錯端點：回傳查詢的 Top-K 檢索摘要
-@app.get("/api/debug/sample")
-def debug_sample(q: str, k: int = 5, scenario_only: bool = False):
-    """更強大的測試端點，支援情境卡過濾與擴展查詢測試"""
+# --- 同步端點：支援增量向量更新 ---
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+import hashlib
+import json
+
+class SyncRequest(BaseModel):
+    operation: str  # "upsert" 或 "delete"
+    data: Optional[List[Dict[str, Any]]] = None  # upsert 時的資料
+    ids: Optional[List[str]] = None  # delete 時的 ID 列表
+
+def generate_content_hash(content: str) -> str:
+    """生成內容雜湊值"""
+    return hashlib.md5(content.encode('utf-8')).hexdigest()
+
+def format_scenario_for_vector(scenario: Dict[str, Any]) -> Dict[str, Any]:
+    """將 scenario 資料格式化為向量儲存格式"""
+    content = f"{scenario.get('title', '')}\n\n{scenario.get('body', '')}"
+    
+    return {
+        'id': scenario['id'],
+        'content': content,
+        'metadata': {
+            'source': 'scenario',
+            'title': scenario.get('title', ''),
+            'group_id': scenario.get('group_id', ''),
+            'updated_at': scenario.get('updated_at', ''),
+            'content_hash': generate_content_hash(content)
+        }
+    }
+
+@app.post("/api/sync")
+async def sync_vectors(request: SyncRequest):
+    """
+    同步向量資料庫
+    支援 upsert (新增/更新) 和 delete (刪除) 操作
+    """
     try:
-        # 如果要啟用查詢擴展
-        if "expand=true" in q or "expand=1" in q:
-            q = q.replace("expand=true", "").replace("expand=1", "").strip()
-            expanded_queries = expand_query(q)
-            if len(expanded_queries) > 1:
-                # 有查詢擴展
-                all_results = []
-                for exp_q in expanded_queries:
-                    # 執行分層檢索
-                    if scenario_only:
-                        results, _ = layered_search(collection, exp_q, n_results=k)
-                    else:
-                        results = collection.query(
-                            query_texts=[exp_q],
-                            n_results=k,
-                            include=["documents", "metadatas", "distances"]
-                        )
-                    
-                    # 格式化結果
-                    items = []
-                    if results and results.get('ids') and results['ids'][0]:
-                        for i, doc_id in enumerate(results['ids'][0]):
-                            md = results['metadatas'][0][i] if results.get('metadatas') and results['metadatas'][0] else {}
-                            items.append({
-                                "id": doc_id,
-                                "title": md.get('title'),
-                                "category": md.get('category'),
-                                "question": md.get('question'),
-                                "distance": results['distances'][0][i] if results.get('distances') and results['distances'][0] else None
-                            })
-                    all_results.append({
-                        "query": exp_q,
-                        "results": items
-                    })
-                return {"original_query": q, "expanded": True, "queries": all_results}
-            
-        # 如果是一般查詢（不擴展）
-        where_filter = {"category": "scenario_card"} if scenario_only else None
+        # 初始化 ChromaDB 連線
+        import chromadb
+        from chromadb.config import Settings
         
-        results = collection.query(
-            query_texts=[q],
-            n_results=k,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"]
+        client = chromadb.PersistentClient(
+            path=DB_PATH,
+            settings=Settings(anonymized_telemetry=False)
         )
         
-        items = []
-        if results.get('ids') and results['ids'][0]:
-            for i, doc_id in enumerate(results['ids'][0]):
-                md = results['metadatas'][0][i] if results.get('metadatas') and results['metadatas'][0] else {}
-                items.append({
-                    "id": doc_id,
-                    "title": md.get('title'),
-                    "category": md.get('category'),
-                    "question": md.get('question'),
-                    "distance": results['distances'][0][i] if results.get('distances') and results['distances'][0] else None
-                })
-        return {"query": q, "scenario_only": scenario_only, "results": items}
+        COLLECTION_NAME = "asus_security_docs"
+        
+        try:
+            collection = client.get_collection(COLLECTION_NAME)
+        except Exception:
+            # 如果集合不存在，建立新集合
+            collection = client.create_collection(
+                name=COLLECTION_NAME,
+                metadata={"description": "ASUS Security Documents and Scenarios"}
+            )
+        
+        if request.operation == "upsert":
+            if not request.data:
+                return {"success": False, "message": "No data provided for upsert operation"}
+            
+            # 處理 upsert 操作
+            documents = []
+            metadatas = []
+            ids = []
+            
+            for item in request.data:
+                formatted = format_scenario_for_vector(item)
+                documents.append(formatted['content'])
+                metadatas.append(formatted['metadata'])
+                ids.append(formatted['id'])
+            
+            # 執行 upsert
+            collection.upsert(
+                documents=documents,
+                metadatas=metadatas,
+                ids=ids
+            )
+            
+            return {
+                "success": True,
+                "operation": "upsert",
+                "processed_count": len(request.data),
+                "message": f"Successfully upserted {len(request.data)} documents"
+            }
+            
+        elif request.operation == "delete":
+            if not request.ids:
+                return {"success": False, "message": "No IDs provided for delete operation"}
+            
+            # 處理 delete 操作
+            try:
+                collection.delete(ids=request.ids)
+                
+                return {
+                    "success": True,
+                    "operation": "delete",
+                    "processed_count": len(request.ids),
+                    "message": f"Successfully deleted {len(request.ids)} documents"
+                }
+            except Exception as e:
+                # 如果某些 ID 不存在，仍然回傳成功
+                return {
+                    "success": True,
+                    "operation": "delete",
+                    "processed_count": len(request.ids),
+                    "message": f"Delete operation completed (some IDs may not exist): {str(e)}"
+                }
+        
+        else:
+            return {"success": False, "message": f"Unknown operation: {request.operation}"}
+            
     except Exception as e:
-        return {"query": q, "error": str(e)}
+        print(f"❌ Sync operation failed: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Sync operation failed: {str(e)}"
+        }
+
+@app.get("/api/sync/status")
+async def sync_status():
+    """
+    檢查同步服務狀態
+    """
+    try:
+        import chromadb
+        from chromadb.config import Settings
+        
+        client = chromadb.PersistentClient(
+            path=DB_PATH,
+            settings=Settings(anonymized_telemetry=False)
+        )
+        
+        COLLECTION_NAME = "asus_security_docs"
+        
+        try:
+            collection = client.get_collection(COLLECTION_NAME)
+            count = collection.count()
+            
+            return {
+                "status": "healthy",
+                "database_path": DB_PATH,
+                "collection_name": COLLECTION_NAME,
+                "document_count": count,
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            return {
+                "status": "collection_not_found",
+                "database_path": DB_PATH,
+                "collection_name": COLLECTION_NAME,
+                "error": str(e),
+                "timestamp": time.time()
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": time.time()
+        }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

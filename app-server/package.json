@@ -2,18 +2,26 @@
   "name": "app-server",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node index_sqlite.js",
+    "start:old": "node index.js",
+    "dev": "node index_sqlite.js",
+    "migrate": "node scripts/migrate_fixed.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.7.2",
+    "better-sqlite3": "^9.4.0",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "morgan": "^1.10.0",
+    "nanoid": "^5.0.7"
   },
-  "description": ""
+  "description": "App server for Confidential Expert AI system with SQLite database"
 }
