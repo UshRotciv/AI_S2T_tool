@@ -4,6 +4,8 @@ import stat
 from fastapi import FastAPI, Depends
 import ingest
 import threading
+import time
+import re
 
 # --- Path Setup ---
 # 建立絕對路徑，確保無論從哪裡執行，路徑都正確
@@ -81,6 +83,31 @@ sentence_transformer_ef = embedding_functions.OllamaEmbeddingFunction(
     url="http://localhost:11434",
 )
 
+# 查詢擴展詞組庫 - 針對短查詢提供更具體的相關查詢
+QUERY_EXPANSIONS = {
+    "作品集": [
+        "準備作品集的資安注意事項",
+        "對外公開作品集的規範", 
+        "未採用提案是否可放進作品集",
+        "作品集避免洩露公司機密",
+        "個人作品集與智慧財產權",
+        "員工作品集公開限制",
+        "設計提案作品集規範"
+    ],
+    "印表機": [
+        "印表機機密文件處理",
+        "印表機列印機密資料",
+        "印表機安全使用規範",
+        "機密文件印表機操作"
+    ],
+    "測試軟體": [
+        "免費測試軟體風險",
+        "測試軟體安全性",
+        "軟體測試安全規範",
+        "免費軟體使用風險"
+    ]
+}
+
 # 獲取或創建集合，使用一致的嵌入函數
 try:
     # 1. get_collection 也綁定 embedding_function
@@ -149,6 +176,174 @@ def empty_results(r):
         return True
     return False
 
+# 檢索結果後處理：距離門檻過濾 + 去重（依 parent_id 或 title 分組）
+def postprocess_results(results: Dict[str, Any], distance_threshold: float = 0.45, max_per_group: int = 2) -> Dict[str, Any]:
+    """
+    對檢索結果進行低風險後處理：
+    1) 過濾距離過大的候選（cosine 距離門檻）
+    2) 依 parent_id 或 title 分組，保留每組距離最小的前 N 筆
+
+    備註：若傳入結構不完整，將原樣返回以避免影響主流程。
+    """
+    try:
+        if not results or not results.get('ids') or not results['ids'] or not results['ids'][0]:
+            return results
+
+        ids = results['ids'][0]
+        docs = results['documents'][0] if results.get('documents') and results['documents'] else []
+        mds = results['metadatas'][0] if results.get('metadatas') and results['metadatas'] else []
+        dists = results['distances'][0] if results.get('distances') and results['distances'] else []
+
+        # 將元素打包為統一清單，方便篩選與分組
+        items = []
+        for i, doc_id in enumerate(ids):
+            item = {
+                'id': doc_id,
+                'document': docs[i] if i < len(docs) else "",
+                'metadata': mds[i] if i < len(mds) else {},
+                'distance': dists[i] if i < len(dists) else None,
+                'index': i,
+            }
+            items.append(item)
+
+        before_count = len(items)
+
+        # 1) 距離門檻過濾
+        filtered = []
+        for it in items:
+            dist = it.get('distance')
+            # 沒有距離資訊的保留（保守作法），有距離則需低於門檻
+            if dist is None or dist < distance_threshold:
+                filtered.append(it)
+        after_threshold = len(filtered)
+        print(f"後處理-距離門檻: {before_count} -> {after_threshold} (threshold={distance_threshold})")
+
+        if not filtered:
+            # 全被過濾，避免影響流程，回傳原始結果
+            print("後處理結果為空，回退使用原始結果")
+            return results
+
+        # 2) 依 parent_id 或 title 分組去重（避免 ungrouped 吃光結果）
+        from collections import defaultdict
+        groups = defaultdict(list)
+        for it in filtered:
+            md = it.get('metadata') or {}
+            base_key = md.get('parent_id') or md.get('title')
+            # 沒有 parent_id/title 時，每個 id 自成一組
+            key = base_key if base_key else f"__ungrouped__{it['id']}"
+            groups[key].append(it)
+
+        # 每組取距離最小的前 N 筆
+        selected = []
+        for key, arr in groups.items():
+            arr_sorted = sorted(arr, key=lambda x: (float('inf') if x.get('distance') is None else x['distance']))
+            keep = arr_sorted[:max_per_group]
+            selected.extend(keep)
+        after_group = len(selected)
+        print(f"後處理-分組去重: {after_threshold} -> {after_group} (max_per_group={max_per_group}, groups={len(groups)})")
+
+        # 重新構建 results 結構
+        new_ids = []
+        new_docs = []
+        new_mds = []
+        new_dists = []
+        for it in selected:
+            new_ids.append(it['id'])
+            new_docs.append(it.get('document', ""))
+            new_mds.append(it.get('metadata', {}))
+            new_dists.append(it.get('distance'))
+
+        new_results = {
+            'ids': [new_ids],
+            'documents': [new_docs],
+            'metadatas': [new_mds],
+            'distances': [new_dists],
+        }
+
+        return new_results
+    except Exception as e:
+        print(f"後處理發生錯誤，使用原始結果: {e}")
+        return results
+
+# 查詢擴展函式 - 針對短查詢生成更具體的相關查詢
+def expand_query(original_query):
+    """
+    查詢擴展函式 - 針對短查詢生成更具體的相關查詢
+    """
+    # 檢查是否有預定義的擴展
+    for key, values in QUERY_EXPANSIONS.items():
+        if key in original_query:
+            print(f"為查詢 '{original_query}' 找到擴展詞組，添加 {len(values)} 個相關查詢")
+            return [original_query] + values
+    
+    # 檢查是否為極短查詢（少於4個中文字符）
+    if len(re.sub(r'[^\u4e00-\u9fff]', '', original_query)) < 4:
+        print(f"查詢 '{original_query}' 太短，但未找到預定義擴展詞組")
+    
+    # 如果沒有預定義擴展，返回原查詢
+    return [original_query]
+
+# 分層檢索策略
+def layered_search(collection, query, n_results=7, timeout_sec=3.0):
+    """
+    分層檢索策略（修復版）
+    第一層：Part A-D 情境卡優先（實際存在的類別）
+    第二層：排除 rule_document
+    第三層：全庫檢索
+    """
+    try:
+        # 第一層：優先檢索 Part A-D 情境卡（實際存在的類別）
+        print(f"第一層檢索: Part A-D 情境卡")
+        scenario_categories = [
+            "Part A: 辦公室基礎好習慣 (Basic Office Habits)",
+            "Part B: 數位檔案的溝通與傳遞 (Digital File Communication & Transfer)",
+            "Part C: 機敏資料與高風險工具 (Sensitive Data & High-Risk Tools)",
+            "Part D: 智慧財產與你的權責 (Intellectual Property & Your Responsibilities)"
+        ]
+        layer1_results = collection.query(
+            query_texts=[query],
+            n_results=n_results,
+            where={"category": {"$in": scenario_categories}},
+            include=["documents", "metadatas", "distances"]
+        )
+        if len(layer1_results['ids'][0]) > 0:
+            print(f"第一層找到 {len(layer1_results['ids'][0])} 個情境卡")
+            return layer1_results, "scenario_parts"
+    except Exception as e:
+        print(f"第一層檢索失敗: {e}")
+    
+    try:
+        # 第二層：排除 rule_document，檢索其他類型
+        print(f"第二層檢索: 排除 rule_document")
+        layer2_results = collection.query(
+            query_texts=[query],
+            n_results=n_results,
+            where={"category": {"$ne": "rule_document"}},
+            include=["documents", "metadatas", "distances"]
+        )
+        if len(layer2_results['ids'][0]) > 0:
+            print(f"第二層找到 {len(layer2_results['ids'][0])} 個文件 (排除 rule_document)")
+            return layer2_results, "filtered"
+    except Exception as e:
+        print(f"第二層檢索失敗: {e}")
+    
+    try:
+        # 第三層：全庫檢索
+        print(f"第三層檢索: 全庫檢索")
+        layer3_results = collection.query(
+            query_texts=[query],
+            n_results=n_results,
+            include=["documents", "metadatas", "distances"]
+        )
+        if len(layer3_results['ids'][0]) > 0:
+            print(f"第三層找到 {len(layer3_results['ids'][0])} 個文件 (全庫)")
+            return layer3_results, "full"
+    except Exception as e:
+        print(f"第三層檢索失敗: {e}")
+    
+    print(f"所有層級檢索都無結果")
+    return None, "none"
+
 @app.post("/api/ask")
 def ask(request: AskRequest):
     question = request.question
@@ -167,38 +362,141 @@ def ask(request: AskRequest):
                 where={"category": "meta"},
                 include=["documents", "metadatas", "distances"]
             )
-            print(f"元問題查詢結果: {results}")
+            print(f"元問題查詢結果: 找到 {len(results['ids'][0]) if results.get('ids') and results['ids'][0] else 0} 個文件")
+            search_type = "meta"
         else:
-            # 對於所有其他問題，執行標準的向量檢索
-            print(f"執行標準向量檢索，查詢: '{question}'")
-            # 優先排除非情境文件（如 rule_document），提高情境卡片命中率
-            results = collection.query(
-                query_texts=[question],
-                n_results=7,
-                where={"category": {"$ne": "rule_document"}},
-                include=["documents", "metadatas", "distances"]
-            )
-            count_primary = len(results['ids'][0]) if results.get('ids') and results['ids'][0] else 0
-            print(f"一般問題（排除 rule_document）查詢結果數量: {count_primary}")
-            # 若無結果，回退到不過濾檢索
-            if count_primary == 0:
+            # 步驟 1: 對一般問題應用查詢擴展 + 分層檢索策略
+            print(f"===== 進階檢索策略 =====")
+            print(f"原始查詢: '{question}'")
+            
+            # 執行查詢擴展
+            expanded_queries = expand_query(question)
+            
+            # 如果有多個查詢，依次嘗試
+            all_results = []
+            best_result = None
+            best_score = float('inf')
+            best_search_type = "none"
+            
+            for i, query in enumerate(expanded_queries):
+                print(f"測試查詢 {i+1}/{len(expanded_queries)}: '{query}'")
+                
+                # 對每個查詢應用分層檢索
+                result, search_type = layered_search(collection, query, n_results=10)
+                
+                if result and result.get('distances') and result['distances'][0]:
+                    min_distance = min(result['distances'][0])
+                    result_count = len(result['ids'][0])
+                    print(f"  '{query}': {result_count} 結果, 最佳距離: {min_distance:.4f}, 層級: {search_type}")
+                    
+                    all_results.append((query, result, min_distance, search_type))
+                    
+                    # 如果是情境卡結果，優先使用
+                    if search_type == "scenario_card" and (best_search_type != "scenario_card" or min_distance < best_score):
+                        best_score = min_distance
+                        best_result = result
+                        best_search_type = search_type
+                    # 否則根據距離選擇最佳結果
+                    elif search_type != "scenario_card" and best_search_type != "scenario_card" and min_distance < best_score:
+                        best_score = min_distance
+                        best_result = result
+                        best_search_type = search_type
+                else:
+                    print(f"  '{query}': 無結果")
+            
+            # 選擇最佳結果
+            if best_result:
+                results = best_result
+                print(f"===== 選擇最佳結果 =====")
+                print(f"最佳距離: {best_score:.4f}, 層級: {best_search_type}")
+                search_type = best_search_type
+            else:
+                # 如果所有查詢都沒有結果，退回到基本查詢
+                print(f"===== 所有查詢都無結果，執行標準向量檢索 =====")
                 results = collection.query(
                     query_texts=[question],
                     n_results=7,
                     include=["documents", "metadatas", "distances"]
                 )
-                print(f"一般問題（回退不過濾）查詢結果數量: {len(results['ids'][0]) if results.get('ids') and results['ids'][0] else 0}")
+                search_type = "fallback"
 
-            # 暫時禁用 LLM Re-ranking，直接使用向量檢索結果進行測試
-            print(f"跳過 LLM Re-ranking，直接使用向量檢索結果進行測試")
-            print(f"向量檢索找到 {len(results['ids'][0]) if results.get('ids') and results['ids'][0] else 0} 個文件")
+        # 後處理：距離門檻過濾 + 分組去重（放寬門檻避免過度過濾）
+        try:
+            before_cnt = len(results['ids'][0]) if results.get('ids') and results['ids'] and results['ids'][0] else 0
+            results = postprocess_results(results, distance_threshold=0.40, max_per_group=2)
+            after_cnt = len(results['ids'][0]) if results.get('ids') and results['ids'] and results['ids'][0] else 0
+            print(f"後處理完成: {before_cnt} -> {after_cnt} (threshold=0.40)")
+        except Exception as e:
+            print(f"後處理套用失敗（將忽略後處理）: {e}")
 
-        # 暫時完全繞過空結果檢查，直接處理向量檢索結果
-        print(f"=== 繞過所有過濾，直接使用向量檢索結果 ===")
-        if results and results.get('documents') and results['documents'] and results['documents'][0]:
-            print(f"✅ 找到 {len(results['documents'][0])} 個文件，直接處理")
-        else:
-            print("❌ 向量檢索確實沒有結果")
+        # 可選：弱結果時進行再排序（fallback），失敗則自動回退
+        try:
+            trigger_rerank = False
+            min_dist = None
+            if results.get('distances') and results['distances'] and results['distances'][0]:
+                # 過濾 None 後計算最小值
+                valid_dists = [d for d in results['distances'][0] if d is not None]
+                if valid_dists:
+                    min_dist = min(valid_dists)
+            cand_count = len(results['ids'][0]) if results.get('ids') and results['ids'] and results['ids'][0] else 0
+            # 動態觸發條件：避免過度啟動 rerank
+            if cand_count == 0:
+                trigger_rerank = False
+            elif min_dist is not None and min_dist < 0.28:
+                trigger_rerank = False  # 已經很像，不必 rerank
+            else:
+                # 候選偏少且不夠像 -> rerank
+                if cand_count < 5 and (min_dist is None or min_dist > 0.36):
+                    trigger_rerank = True
+            
+            if trigger_rerank:
+                print(f"啟用再排序 fallback：cand_count={cand_count}, min_dist={min_dist}")
+                # 構建候選文檔
+                ids = results['ids'][0]
+                docs = results['documents'][0] if results.get('documents') and results['documents'] else []
+                mds = results['metadatas'][0] if results.get('metadatas') and results['metadatas'] else []
+                dists = results['distances'][0] if results.get('distances') and results['distances'] else []
+
+                candidates = []
+                for i, doc_id in enumerate(ids):
+                    candidates.append({
+                        'id': doc_id,
+                        'text': docs[i] if i < len(docs) else "",
+                        'metadata': mds[i] if i < len(mds) else {},
+                        'distance': dists[i] if i < len(dists) else None,
+                    })
+
+                # 調用輕量 reranker（僅在需要時）
+                try:
+                    from reranker import ReRanker
+                    rr = ReRanker(model_name='qwen2')
+                    top_k = min(5, len(candidates))
+                    reranked = rr.rerank(question, candidates, top_k=top_k)
+                    if reranked:
+                        # 以 rerank 結果重建 results
+                        new_ids, new_docs, new_mds, new_dists = [], [], [], []
+                        for item in reranked:
+                            new_ids.append(item.get('id'))
+                            new_docs.append(item.get('text', ""))
+                            new_mds.append(item.get('metadata', {}))
+                            new_dists.append(item.get('distance'))
+                        results = {
+                            'ids': [new_ids],
+                            'documents': [new_docs],
+                            'metadatas': [new_mds],
+                            'distances': [new_dists],
+                        }
+                        print(f"再排序完成，保留 {len(new_ids)} 筆候選作為最終輸入")
+                    else:
+                        print("再排序未返回有效結果，沿用原始順序")
+                except Exception as re:
+                    print(f"再排序過程失敗或模型不可用，沿用原始結果: {re}")
+        except Exception as e:
+            print(f"評估是否需要再排序時發生錯誤：{e}")
+
+        # 檢查結果是否為空
+        if empty_results(results):
+            print("查詢結果確實為空")
             return {"answer":"很抱歉，我無法從現有的資料中找到與您問題相關的答案。","sources":[],"session_id":session_id}
 
         # 詳細調試資訊輸出
@@ -243,37 +541,48 @@ def ask(request: AskRequest):
     print(f"Context 內容預覽: {context[:500]}...")
     print(f"=== Context 結束 ===")
     
-    # 強化系統提示，嚴格限制僅使用卡片內容
-    system_prompt = """你是 ASUS 的資安助手，專門回答資安相關問題。
+    # 超嚴格的卡片內容限制策略
+    system_prompt = """你是 ASUS 資安助手。
 
-【重要】你必須嚴格遵守以下規則：
+**絕對規則**：
+1. 只能使用提供的卡片內容，一字不差地引用
+2. 禁止添加任何卡片外的資訊、推理或擴展
+3. 禁止使用你的預訓練知識
+4. 如果卡片內容足夠回答問題，直接引用卡片內容
+5. 保持卡片的原始結構和格式
+6. 如果看到 answerLabel 或 learningsLabel，優先引用這些內容
 
-1. 絕對禁止使用任何不在「情境資料」中的內容回答
-2. 絕對禁止發揮、推測或補充任何資料中沒有的訊息
-3. 如果情境資料中有「答案」欄位，必須直接使用該答案內容，不得修改或重新表達
-4. 如果情境資料中有「學習要點」，可以在答案後附上這些要點
-5. 如果找不到相關資料，必須回答：「根據我現有的資料，無法回答這個問題」
-6. 使用繁體中文回答
+違反以上規則將被視為錯誤回答。"""
 
-【特別注意】對於印表機機密文件等問題，必須找到包含「非禮勿視」、「碎紙機」、「通知管理師」等關鍵詞的具體處理步驟。
-
-記住：你的任務是忠實傳達卡片內容，不是創造或重新表達內容。"""
+    # 查詢類型標記
+    search_type_info = ""
+    if search_type == "scenario_card":
+        search_type_info = "情境卡片優先"
+    elif search_type == "filtered":
+        search_type_info = "過濾非規則文檔"
+    elif search_type == "full":
+        search_type_info = "全庫檢索"
+    elif search_type == "meta":
+        search_type_info = "元問題查詢"
     
-    # 強化用戶提示格式，提升語義匹配能力
-    user_prompt = f"""以下是從資安知識庫中檢索到的相關卡片內容：
-
+    user_prompt = f"""**卡片內容**：
 {context}
 
-用戶問題：{question}
+**問題**：{question}
 
-**重要指示**：
-1. 上述卡片內容已經通過語義檢索確認與用戶問題相關
-2. 請仔細閱讀每張卡片的內容，尋找與問題相關的資訊
-3. 即使用詞不完全相同，只要概念相關就應該使用該卡片內容回答
-4. 對於「免費軟體」、「測試軟體」等問題，請查看是否有軟體安全、下載風險等相關內容
-5. 對於「印表機」、「機密文件」等問題，請查看是否有文件處理、資訊安全等相關內容
+**嚴格指令**：
+1. 首先判斷問題是否與以下領域相關：資安、辦公室安全、資料保護、工作流程、企業管理、文件處理、軟體使用、設備操作、智慧財產權等職場相關主題
+2. 只有完全無關的問題（如股價、天氣、娛樂、個人生活等）才回答：「根據我現有的資料，無法回答這個問題。」
+3. 如果問題可能相關，優先檢查卡片內容是否包含答案
+4. 只能使用上述卡片內容回答，禁止添加任何卡片外資訊
+5. 如果卡片中有 answerLabel 部分，直接引用該內容作為主要答案
+6. 如果卡片中有 learningsLabel 部分，可在答案後附上作為補充
+7. 不得使用你的預訓練知識進行擴展或推理
+8. 保持卡片的原始表達方式，不要重新詮釋
 
-請基於上述卡片內容提供答案。"""
+請嚴格按照上述指令執行。
+
+注意：這個查詢使用了{search_type_info}策略。"""
 
     # 獲取當前對話的歷史記錄（最多保留最近5輪）
     with history_lock:
@@ -379,13 +688,55 @@ def get_status():
 
 # 簡易除錯端點：回傳查詢的 Top-K 檢索摘要
 @app.get("/api/debug/sample")
-def debug_sample(q: str, k: int = 5):
+def debug_sample(q: str, k: int = 5, scenario_only: bool = False):
+    """更強大的測試端點，支援情境卡過濾與擴展查詢測試"""
     try:
+        # 如果要啟用查詢擴展
+        if "expand=true" in q or "expand=1" in q:
+            q = q.replace("expand=true", "").replace("expand=1", "").strip()
+            expanded_queries = expand_query(q)
+            if len(expanded_queries) > 1:
+                # 有查詢擴展
+                all_results = []
+                for exp_q in expanded_queries:
+                    # 執行分層檢索
+                    if scenario_only:
+                        results, _ = layered_search(collection, exp_q, n_results=k)
+                    else:
+                        results = collection.query(
+                            query_texts=[exp_q],
+                            n_results=k,
+                            include=["documents", "metadatas", "distances"]
+                        )
+                    
+                    # 格式化結果
+                    items = []
+                    if results and results.get('ids') and results['ids'][0]:
+                        for i, doc_id in enumerate(results['ids'][0]):
+                            md = results['metadatas'][0][i] if results.get('metadatas') and results['metadatas'][0] else {}
+                            items.append({
+                                "id": doc_id,
+                                "title": md.get('title'),
+                                "category": md.get('category'),
+                                "question": md.get('question'),
+                                "distance": results['distances'][0][i] if results.get('distances') and results['distances'][0] else None
+                            })
+                    all_results.append({
+                        "query": exp_q,
+                        "results": items
+                    })
+                return {"original_query": q, "expanded": True, "queries": all_results}
+            
+        # 如果是一般查詢（不擴展）
+        where_filter = {"category": "scenario_card"} if scenario_only else None
+        
         results = collection.query(
             query_texts=[q],
-            n_results=max(1, min(k, 10)),
+            n_results=k,
+            where=where_filter,
             include=["documents", "metadatas", "distances"]
         )
+        
         items = []
         if results.get('ids') and results['ids'][0]:
             for i, doc_id in enumerate(results['ids'][0]):
@@ -397,7 +748,7 @@ def debug_sample(q: str, k: int = 5):
                     "question": md.get('question'),
                     "distance": results['distances'][0][i] if results.get('distances') and results['distances'][0] else None
                 })
-        return {"query": q, "results": items}
+        return {"query": q, "scenario_only": scenario_only, "results": items}
     except Exception as e:
         return {"query": q, "error": str(e)}
 
