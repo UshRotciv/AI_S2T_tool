@@ -1,0 +1,59 @@
+/* 瀑布流佈局樣式 */
+.masonry-grid {
+  display: flex;
+  margin-left: -24px; /* 抵消列間距 */
+  width: auto;
+}
+
+.masonry-grid_column {
+  padding-left: 24px; /* 列間距 */
+  background-clip: padding-box;
+}
+
+/* 響應式斷點調整 */
+@media (max-width: 700px) {
+  .masonry-grid {
+    margin-left: -16px;
+  }
+  
+  .masonry-grid_column {
+    padding-left: 16px;
+  }
+}
+
+/* 卡片動畫效果 */
+.masonry-grid_column > div {
+  margin-bottom: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 700px) {
+  .masonry-grid_column > div {
+    margin-bottom: 16px;
+  }
+}
+
+/* 確保卡片在瀑布流中正確顯示 */
+.masonry-grid_column .MuiCard-root {
+  width: 100%;
+  display: block;
+}
+
+/* 滾動條樣式優化 */
+.masonry-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.masonry-grid::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.masonry-grid::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.masonry-grid::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

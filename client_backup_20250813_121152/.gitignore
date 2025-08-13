@@ -1,0 +1,15 @@
+# Dependencies
+/node_modules
+/server/node_modules
+
+# Build artifacts
+/build
+
+# Logs
+*.log
+
+# Database
+*.db
+
+# Environment variables
+.env

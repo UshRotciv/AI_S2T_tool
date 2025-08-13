@@ -6,11 +6,116 @@ import ingest
 import threading
 import time
 import re
+import sqlite3
 
 # --- Path Setup ---
 # 建立絕對路徑，確保無論從哪裡執行，路徑都正確
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(SCRIPT_DIR, 'chroma_db')
+
+# --- Database Logging Setup ---
+LOG_DB_PATH = os.path.join(SCRIPT_DIR, 'logs.db')
+
+def init_log_db():
+    """初始化日誌資料庫並建立 qa_log 資料表"""
+    try:
+        conn = sqlite3.connect(LOG_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS qa_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                question TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        conn.close()
+        print("✅ 日誌資料庫初始化成功")
+    except Exception as e:
+        print(f"❌ 日誌資料庫初始化失敗: {e}")
+
+def log_qa(session_id: str, question: str, answer: str):
+    """記錄問答對到資料庫"""
+    try:
+        conn = sqlite3.connect(LOG_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO qa_log (session_id, question, answer) VALUES (?, ?, ?)",
+            (session_id, question, answer)
+        )
+        conn.commit()
+        conn.close()
+        print(f"📝 問答已記錄 (session: {session_id})")
+    except Exception as e:
+        print(f"❌ 問答記錄失敗: {e}")
+
+# 幻想內容檢測和修正函式
+def filter_hallucinated_content(response_text):
+    """
+    檢測和過濾回答中的幻想內容，特別是不當的雲端服務提及。
+    採用分類和循環替換邏輯，避免重複替換導致的語意錯誤。
+    """
+    if not response_text or not response_text.strip():
+        return response_text
+
+    text = response_text
+    modified = False
+
+    # 定義更智能的替換規則
+    hallucination_rules = {
+        'corporate_services': {
+            'keywords': ['AWS', 'Google Cloud', 'Azure'],
+            'replacement': '公司指定的雲端服務'
+        },
+        'corporate_storage': {
+            'keywords': ['Amazon S3', 'S3'],
+            'replacement': '公司指定的雲端儲存'
+        },
+        'personal_storage': {
+            'keywords': ['Google Drive', 'Dropbox', 'iCloud'],
+            'replacements': ['OneDrive', '公司核可的個人雲端硬碟']  # 使用列表進行循環替換
+        }
+    }
+
+    # 處理個人儲存服務，使用循環替換避免重複
+    personal_storage_rules = hallucination_rules['personal_storage']
+    personal_keywords = personal_storage_rules['keywords']
+    personal_replacements = personal_storage_rules['replacements']
+    replacement_index = 0
+
+    # 為了避免在替換時互相影響，先找出所有要替換的詞
+    # 按照從長到短的順序排序關鍵字，避免 'Amazon S3' 被 'S3' 規則先匹配
+    all_keywords = sorted(
+        personal_keywords + 
+        hallucination_rules['corporate_services']['keywords'] + 
+        hallucination_rules['corporate_storage']['keywords'],
+        key=len,
+        reverse=True
+    )
+
+    for keyword in all_keywords:
+        if keyword in text:
+            # 決定使用哪個替換詞
+            if keyword in personal_keywords:
+                replacement = personal_replacements[replacement_index % len(personal_replacements)]
+                replacement_index += 1
+            elif keyword in hallucination_rules['corporate_services']['keywords']:
+                replacement = hallucination_rules['corporate_services']['replacement']
+            else: # corporate_storage
+                replacement = hallucination_rules['corporate_storage']['replacement']
+            
+            # 執行替換
+            if keyword in text:
+                text = text.replace(keyword, replacement)
+                modified = True
+                print(f"⚠️ 檢測到幻想內容 '{keyword}'，已替換為 '{replacement}'")
+
+    if modified:
+        print("✅ 已過濾幻想內容，確保回答符合公司政策")
+
+    return text
 
 # --- Robust Database Auto-Rebuild on Startup (Commented Out) ---
 
@@ -63,6 +168,10 @@ from datetime import datetime, timedelta
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_event():
+    init_log_db()
 
 # 3. CORS Middleware
 app.add_middleware(
@@ -305,31 +414,10 @@ def postprocess_results(results: Dict[str, Any], distance_threshold: float = 0.4
             print("後處理結果為空，回退使用原始結果")
             return results
 
-        # 2) 語義相關性檢查（如果提供了查詢）
-        if query:
-            semantic_filtered = []
-            for it in filtered:
-                doc_text = it.get('document', '')
-                metadata = it.get('metadata', {})
-                if check_semantic_relevance(query, doc_text, metadata):
-                    semantic_filtered.append(it)
-                else:
-                    print(f"⚠️ 過濾語義無關內容: {doc_text[:50]}...")
-            
-            after_semantic = len(semantic_filtered)
-            print(f"後處理-語義相關性: {after_threshold} -> {after_semantic}")
-            
-            # 如果語義過濾後結果太少，保留原始過濾結果
-            if after_semantic < 2 and after_threshold > 0:
-                print("語義過濾結果太少，保留距離過濾結果")
-                semantic_filtered = filtered
-        else:
-            semantic_filtered = filtered
-
-        # 3) 依 parent_id 或 title 分組去重（避免 ungrouped 吃光結果）
+        # 2) 依 parent_id 或 title 分組去重（避免 ungrouped 吃光結果）
         from collections import defaultdict
         groups = defaultdict(list)
-        for it in semantic_filtered:
+        for it in filtered:
             md = it.get('metadata') or {}
             base_key = md.get('parent_id') or md.get('title')
             # 沒有 parent_id/title 時，每個 id 自成一組
@@ -368,152 +456,6 @@ def postprocess_results(results: Dict[str, Any], distance_threshold: float = 0.4
         print(f"後處理發生錯誤，使用原始結果: {e}")
         return results
 
-# 語義相關性檢查函式
-def check_semantic_relevance(query, document_text, metadata=None):
-    """
-    檢查檢索結果與查詢的語義相關性，過濾明顯無關的內容
-    """
-    query_lower = query.lower()
-    doc_lower = document_text.lower()
-    
-    # 定義主題關鍵詞組
-    topic_groups = {
-        "作品集": ["作品集", "portfolio", "設計", "創作", "展示", "求職", "工作", "面試", "履歷"],
-        "居家辦公": ["居家", "在家", "遠距", "remote", "家中", "辦公室外", "遠端"],
-        "機鎖": ["離機", "鎖定", "螢幕", "電腦", "workstation", "lock", "螢幕鎖"],
-        "檔案傳輸": ["檔案", "傳輸", "分享", "共享", "email", "郵件", "雲端", "傳送"],
-        "密碼": ["密碼", "password", "認證", "登入", "帳號", "驗證"],
-        "網路安全": ["網路", "網站", "瀏覽", "下載", "連結", "惡意", "病毒"]
-    }
-    
-    # 識別查詢主題
-    query_topics = []
-    for topic, keywords in topic_groups.items():
-        if any(keyword in query_lower for keyword in keywords):
-            query_topics.append(topic)
-    
-    # 如果無法識別查詢主題，允許通過（避免過度過濾）
-    if not query_topics:
-        return True
-    
-    # 檢查文檔是否與任一查詢主題相關
-    for topic in query_topics:
-        topic_keywords = topic_groups[topic]
-        if any(keyword in doc_lower for keyword in topic_keywords):
-            return True
-    
-    # 檢查是否為明顯無關的主題組合
-    if "作品集" in query_topics:
-        # 作品集查詢不應該返回居家辦公或機鎖相關內容
-        irrelevant_keywords = ["居家辦公", "在家工作", "遠距工作", "離機鎖定", "螢幕鎖定", "人離機鎖"]
-        if any(keyword in doc_lower for keyword in irrelevant_keywords):
-            print(f"⚠️ 過濾無關內容: 作品集查詢不應包含'{keyword}'相關內容")
-            return False
-    
-    return True
-
-# 幻想內容檢測和修正函式
-def filter_hallucinated_content(response_text):
-    """
-    檢測和過濾回答中的幻想內容，特別是不當的雲端服務提及
-    """
-    if not response_text or not response_text.strip():
-        return response_text
-    
-    text = response_text
-    
-    # 定義禁用的雲端服務和替換規則
-    prohibited_services = {
-        "AWS": "公司指定的雲端服務",
-        "Amazon S3": "公司指定的雲端儲存",
-        "S3": "公司指定的雲端儲存",
-        "Google Drive": "OneDrive",
-        "Dropbox": "OneDrive",
-        "iCloud": "OneDrive",
-        "Google Cloud": "公司指定的雲端服務",
-        "Azure": "公司指定的雲端服務"
-    }
-    
-    # 檢測並替換禁用服務
-    modified = False
-    for prohibited, replacement in prohibited_services.items():
-        if prohibited in text:
-            text = text.replace(prohibited, replacement)
-            modified = True
-            print(f"⚠️ 檢測到幻想內容 '{prohibited}'，已替換為 '{replacement}'")
-    
-    # 如果有修改，添加說明
-    if modified:
-        print("✅ 已過濾幻想內容，確保回答符合公司政策")
-    
-    return text
-
-# 智能回答完整性檢查函式
-def ensure_complete_response(response_text):
-    """
-    確保AI回答以完整句子結束，避免截斷問題
-    
-    檢查邏輯：
-    1. 檢查是否以完整的中文標點符號結束
-    2. 如果被截斷，嘗試在最後一個完整句子處截斷
-    3. 添加適當的結束語
-    """
-    if not response_text or not response_text.strip():
-        return response_text
-    
-    text = response_text.strip()
-    
-    # 定義完整句子的結束標點符號
-    complete_endings = ['。', '！', '？', '：', '；', '.', '!', '?', ':', ';']
-    incomplete_patterns = [
-        '，', '、', ',', '的', '了', '是', '在', '有', '和', '或', '但', '而',
-        '因', '所', '如', '當', '將', '會', '可', '能', '要', '應', '必', '請'
-    ]
-    
-    # 檢查是否以完整標點結束
-    if text[-1] in complete_endings:
-        print("回答已完整，無需修正")
-        return text
-    
-    # 檢查是否明顯被截斷（以不完整的詞彙結束）
-    is_truncated = False
-    for pattern in incomplete_patterns:
-        if text.endswith(pattern):
-            is_truncated = True
-            break
-    
-    # 如果沒有明顯截斷跡象，但也沒有完整結尾，檢查最後幾個字符
-    if not is_truncated:
-        # 檢查最後10個字符是否包含完整標點
-        last_chars = text[-10:] if len(text) > 10 else text
-        has_punctuation = any(char in complete_endings for char in last_chars)
-        if not has_punctuation:
-            is_truncated = True
-    
-    if is_truncated:
-        print("檢測到回答可能被截斷，進行修正")
-        
-        # 尋找最後一個完整句子的位置
-        last_complete_pos = -1
-        for i in range(len(text) - 1, -1, -1):
-            if text[i] in complete_endings:
-                last_complete_pos = i
-                break
-        
-        # 更寬鬆的截斷策略：只有在完整句子位置在後50%時才截斷，否則只添加句號
-        if last_complete_pos > len(text) * 0.5:  # 降低門檻從70%到50%
-            corrected_text = text[:last_complete_pos + 1]
-            print(f"在位置 {last_complete_pos} 找到完整句子，截斷到此處")
-        else:
-            # 更保守的處理：只移除明顯的不完整結尾，保留更多內容
-            corrected_text = text.rstrip('，、,') + '。'
-            print("移除少量不完整結尾並添加句號，保留大部分內容")
-        
-        return corrected_text
-    
-    print("回答完整性檢查通過")
-    return text
-
 # 智能查詢擴展函式 - 提升檢索效果和覆蓋範圍
 def expand_query(original_query):
     """
@@ -536,78 +478,18 @@ def expand_query(original_query):
                 expanded_queries.extend(values[:2])  # 部分匹配只添加少量
                 break
     
-    # 3. 智能情境模板擴展 - 不限制查詢長度，提升理解能力
-    # 情境模板：精確化擴展，避免無關檢索
-    context_templates = {
-        "作品集": [
-            "準備作品集的資安注意事項",
-            "員工作品集公開規範", 
-            "未採用提案是否可放進作品集",
-            "作品集避免洩露公司機密",
-            "個人作品集與智慧財產權",
-            "對外公開作品集的規範"
-            # 移除過於廣泛的「設計師作品集工作流程」避免檢索到無關內容
-        ],
-        "印表機": [
-            "印表機機密文件處理",
-            "印表機安全使用規範",
-            "機密文件印表機注意事項"
-        ],
-        "郵件": [
-            "釣魚郵件識別",
-            "郵件安全注意事項",
-            "可疑郵件處理"
-        ],
-        "密碼": [
-            "密碼安全設定",
-            "密碼管理規範",
-            "帳號密碼保護"
-        ]
-    }
-    
-    # 檢查是否有情境模板匹配（不限制查詢長度）
-    if len(expanded_queries) == 1:  # 如果還沒有找到擴展
-        # 增強語義理解：支持更多表達方式
-        semantic_mapping = {
-            "作品集": ["作品集", "portfolio", "個人作品", "設計作品", "展示作品"],
-            "印表機": ["印表機", "列印", "打印", "printer"],
-            "郵件": ["郵件", "email", "信件", "電子郵件"],
-            "密碼": ["密碼", "password", "帳密", "登入"]
-        }
-        
-        matched_template = None
-        for template_key, template_queries in context_templates.items():
-            # 檢查直接匹配
-            if template_key in original_query:
-                matched_template = template_key
-                break
-            # 檢查語義變化匹配
-            if template_key in semantic_mapping:
-                for variant in semantic_mapping[template_key]:
-                    if variant in original_query:
-                        matched_template = template_key
-                        break
-                if matched_template:
-                    break
-        
-        if matched_template:
-            expanded_queries.extend(context_templates[matched_template])
-            print(f"✓ 為查詢 '{original_query}' 應用情境模板: '{matched_template}' -> 添加 {len(context_templates[matched_template])} 個擴展查詢")
-    
-    # 4. 短查詢額外處理（保留原有邏輯）
+    # 3. 短查詢智能擴展
     chinese_chars = len(re.sub(r'[^\u4e00-\u9fff]', '', original_query))
     if chinese_chars < 4 and len(expanded_queries) == 1:
-        
-        # 如果沒有情境模板匹配，使用原有的語義相關擴展
-        if len(expanded_queries) == 1:
-            short_query_expansions = {
-                "列印": ["印表機", "機密"],
-                "下載": ["軟體", "測試軟體"],
-                "郵件": ["釣魚", "安全"],
-                "密碼": ["安全", "資安"],
-                "備份": ["資料", "安全"],
-                "遠端": ["工作", "安全"]
-            }
+        # 對於極短查詢，嘗試語義相關的擴展
+        short_query_expansions = {
+            "列印": ["印表機", "機密"],
+            "下載": ["軟體", "測試軟體"],
+            "郵件": ["釣魚", "安全"],
+            "密碼": ["安全", "資安"],
+            "備份": ["資料", "安全"],
+            "遠端": ["工作", "安全"]
+        }
         
         for short_key, related_keys in short_query_expansions.items():
             if short_key in original_query:
@@ -895,7 +777,7 @@ def ask(request: AskRequest):
                 results = safe_fallback_query(collection, fallback_params, "標準向量檢索")
                 search_type = "fallback"
 
-        # 智能後處理：動態距離門檻 + 分組去重 + 語義相關性檢查
+        # 智能後處理：動態距離門檻 + 分組去重
         try:
             before_cnt = len(results['ids'][0]) if results.get('ids') and results['ids'] and results['ids'][0] else 0
             
@@ -907,8 +789,7 @@ def ask(request: AskRequest):
             else:
                 threshold = 0.40  # 一般查詢使用中等門檻
             
-            # 應用後處理（包含距離過濾和語義相關性檢查）
-            results = postprocess_results(results, distance_threshold=threshold, max_per_group=3, query=question)
+            results = postprocess_results(results, distance_threshold=threshold, max_per_group=3)
             after_cnt = len(results['ids'][0]) if results.get('ids') and results['ids'] and results['ids'][0] else 0
             print(f"智能後處理完成: {before_cnt} -> {after_cnt} (threshold={threshold}, type={search_type})")
         except Exception as e:
@@ -1039,22 +920,27 @@ def ask(request: AskRequest):
     print(f"Context 內容預覽: {context[:500]}...")
     print(f"=== Context 結束 ===")
     
-    # 優化的智能助手提示策略 - 強化約束防止幻想
+    # 優化的智能助手提示策略
     system_prompt = """你是 ASUS 資安助手，專門協助員工處理資訊安全、辦公室安全和工作流程相關問題。
 
-**嚴格約束**：
-1. **絕對不可提及**：AWS、S3、Google Drive、Dropbox、iCloud 等外部雲端服務
-2. **公司指定服務**：如需提及雲端服務，僅可使用 OneDrive、Teams、Office Outlook
-3. **絕對不可添加**：卡片中沒有的任何具體服務、工具或政策建議
-4. **絕對不可推理**：基於常識或預訓練知識進行技術性建議
+**核心原則**：
+1. **準確性優先**：以提供的卡片內容為主要依據，確保資訊正確性
+2. **智能整合**：可以整合多個卡片內容，提供完整且有邏輯的回答
+3. **實用導向**：結合卡片內容與合理推理，提供實用的建議和解決方案
+4. **專業表達**：使用專業但易懂的語言，避免過於技術性的術語
 
-**回答格式**：
-- 直接回答問題，語氣友善專業
-- 基於提供的卡片內容組織回答
-- 如果卡片內容不足，明確說明限制範圍
-- 避免過度冗長，保持重點明確
+**回答策略**：
+- 優先使用卡片中的 answerLabel 和 learningsLabel 內容
+- 可以重新組織和整理卡片內容，使回答更清晰易懂
+- 當卡片內容不完整時，可以提供合理的補充說明
+- 對於複雜問題，可以分步驟或分類別進行回答
+- 適當使用格式化（如條列、編號）提升可讀性
 
-**內容來源**：僅基於以下卡片內容回答，不得添加任何卡片外的資訊。"""
+**品質標準**：
+- 回答要完整、準確、實用
+- 語調要專業但親切
+- 結構要清晰有條理
+- 重點要突出明確"""
 
     # 查詢類型標記
     search_type_info = ""
@@ -1130,29 +1016,17 @@ def ask(request: AskRequest):
         'content': user_prompt,
     })
     
-    # 增加特定指示來強化卡片內容的使用和防止幻想
+    # 增加特定指示來強化卡片內容的使用
     messages.append({
         'role': 'system',
-        'content': f"""**最終檢查指令**：在回答前，請嚴格執行以下檢查：
+        'content': f"""在回答前，請先仔細檢查提供的卡片內容。
 
-**內容驗證**：
+特別注意：
 1. 尋找包含「答案：」的部分，這是你必須使用的標準答案
-2. 檢查你準備回答的每一個要點是否在卡片中明確存在
-3. 如果問題關於作品集，只能使用卡片中關於作品集的具體內容
+2. 如果問題關於印表機機密文件，尋找包含「非禮勿視」、「碎紙機」、「通知」等關鍵詞的內容
+3. 直接引用卡片中的答案，不要重寫或改寫
 
-**嚴格禁止**：
-1. **絕對不可提及**：AWS、S3、Google Drive、Dropbox、iCloud 等外部雲端服務
-2. **公司指定服務**：如需提及雲端服務，僅可使用 OneDrive、Teams、Office Outlook
-3. **絕對不可添加**：卡片中沒有的任何具體服務、工具或政策建議
-4. **絕對不可推理**：基於常識或預訓練知識進行技術性建議
-
-**如果卡片內容不足**：
-- 明確說明：「根據現有的資安指引卡片，我只能提供以下信息...」
-- 不要猜測或添加外部知識
-
-**用戶問題**：{question}
-
-請確保你的回答100%來自提供的卡片內容。"""
+用戶問題是：{question}"""
     })
     
     try:
@@ -1186,10 +1060,9 @@ def ask(request: AskRequest):
             messages=messages,
             options={
                 'temperature': 0.1,  # 進一步降低溫度以提高確定性
-                'num_predict': 600,   # 進一步增加長度限制，確保充足的回答空間
+                'num_predict': 300,   # 適度增加長度限制以確保完整回答
                 'top_p': 0.8,        # 控制生成文本的多樣性
                 'top_k': 30          # 限制候選詞彙數量
-                # 移除 stop 參數，讓模型自然生成完整回答
             }
         )
         
@@ -1202,13 +1075,8 @@ def ask(request: AskRequest):
             print(f"原始答案長度: {len(raw_answer)}")
             
             # 步驟1：過濾幻想內容，特別是不當的雲端服務
-            filtered_answer = filter_hallucinated_content(raw_answer)
-            print(f"過濾後答案長度: {len(filtered_answer)}")
-            
-            # 步驟2：智能完整性檢查，確保回答以完整句子結束
-            answer = ensure_complete_response(filtered_answer)
-            print(f"最終答案長度: {len(answer)}")
-            
+            answer = filter_hallucinated_content(raw_answer)
+            print(f"過濾後答案長度: {len(answer)}")
         else:
             print(f"意外的回應格式: {chat_response}")
             answer = "AI 服務回應格式異常，請稍後再試。"
@@ -1228,6 +1096,9 @@ def ask(request: AskRequest):
                 "distance": results['distances'][0][i] if results.get('distances') and results['distances'][0] and i < len(results['distances'][0]) else None,
             }
             sources.append(src)
+    
+    # 記錄問答日誌
+    log_qa(session_id, question, answer)
     
     # 將當前問答添加到歷史記錄
     with history_lock:
