@@ -348,7 +348,8 @@ body {
 
 .chat-window {
   width: 100%;
-  max-height: 400px;
+  height: 500px; /* 設定初始高度 */
+  max-height: 80vh; /* 最大高度限制 */
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -356,6 +357,25 @@ body {
   flex-direction: column;
   margin-bottom: 20px;
   border: 1px solid #e0e0e0;
+  /* 支持手動調整大小 */
+  resize: both;
+  overflow: auto;
+  min-width: 400px;
+  min-height: 300px;
+  /* 添加調整大小的視覺提示 */
+  position: relative;
+}
+
+.chat-window::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 35%, transparent 35%, transparent 65%, #ccc 65%, #ccc 70%, transparent 70%);
+  cursor: nw-resize;
+  pointer-events: none;
 }
 
 .messages {
@@ -384,6 +404,56 @@ body {
   background-color: #f1f1f1;
   color: #333;
   align-self: flex-start;
+}
+
+/* Markdown 樣式支持 */
+.message.bot h1, .message.bot h2, .message.bot h3 {
+  margin: 10px 0 5px 0;
+  color: #005a9e;
+}
+
+.message.bot h1 {
+  font-size: 1.2em;
+  border-bottom: 2px solid #005a9e;
+  padding-bottom: 3px;
+}
+
+.message.bot h2 {
+  font-size: 1.1em;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 2px;
+}
+
+.message.bot h3 {
+  font-size: 1.05em;
+}
+
+.message.bot strong {
+  color: #005a9e;
+  font-weight: 600;
+}
+
+.message.bot em {
+  font-style: italic;
+  color: #666;
+}
+
+.message.bot code {
+  background-color: #e8f4f8;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #d63384;
+}
+
+.message.bot p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.message.bot br {
+  line-height: 1.8;
 }
 
 .input-area {
