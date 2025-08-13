@@ -347,72 +347,6 @@ def postprocess_results(results: Dict[str, Any], distance_threshold: float = 0.4
         print(f"後處理發生錯誤，使用原始結果: {e}")
         return results
 
-# 智能回答完整性檢查函式
-def ensure_complete_response(response_text):
-    """
-    確保AI回答以完整句子結束，避免截斷問題
-    
-    檢查邏輯：
-    1. 檢查是否以完整的中文標點符號結束
-    2. 如果被截斷，嘗試在最後一個完整句子處截斷
-    3. 添加適當的結束語
-    """
-    if not response_text or not response_text.strip():
-        return response_text
-    
-    text = response_text.strip()
-    
-    # 定義完整句子的結束標點符號
-    complete_endings = ['。', '！', '？', '：', '；', '.', '!', '?', ':', ';']
-    incomplete_patterns = [
-        '，', '、', ',', '的', '了', '是', '在', '有', '和', '或', '但', '而',
-        '因', '所', '如', '當', '將', '會', '可', '能', '要', '應', '必', '請'
-    ]
-    
-    # 檢查是否以完整標點結束
-    if text[-1] in complete_endings:
-        print("回答已完整，無需修正")
-        return text
-    
-    # 檢查是否明顯被截斷（以不完整的詞彙結束）
-    is_truncated = False
-    for pattern in incomplete_patterns:
-        if text.endswith(pattern):
-            is_truncated = True
-            break
-    
-    # 如果沒有明顯截斷跡象，但也沒有完整結尾，檢查最後幾個字符
-    if not is_truncated:
-        # 檢查最後10個字符是否包含完整標點
-        last_chars = text[-10:] if len(text) > 10 else text
-        has_punctuation = any(char in complete_endings for char in last_chars)
-        if not has_punctuation:
-            is_truncated = True
-    
-    if is_truncated:
-        print("檢測到回答可能被截斷，進行修正")
-        
-        # 尋找最後一個完整句子的位置
-        last_complete_pos = -1
-        for i in range(len(text) - 1, -1, -1):
-            if text[i] in complete_endings:
-                last_complete_pos = i
-                break
-        
-        # 更寬鬆的截斷策略：只有在完整句子位置在後50%時才截斷，否則只添加句號
-        if last_complete_pos > len(text) * 0.5:  # 降低門檻從70%到50%
-            corrected_text = text[:last_complete_pos + 1]
-            print(f"在位置 {last_complete_pos} 找到完整句子，截斷到此處")
-        else:
-            # 更保守的處理：只移除明顯的不完整結尾，保留更多內容
-            corrected_text = text.rstrip('，、,') + '。'
-            print("移除少量不完整結尾並添加句號，保留大部分內容")
-        
-        return corrected_text
-    
-    print("回答完整性檢查通過")
-    return text
-
 # 智能查詢擴展函式 - 提升檢索效果和覆蓋範圍
 def expand_query(original_query):
     """
@@ -1017,10 +951,9 @@ def ask(request: AskRequest):
             messages=messages,
             options={
                 'temperature': 0.1,  # 進一步降低溫度以提高確定性
-                'num_predict': 600,   # 進一步增加長度限制，確保充足的回答空間
+                'num_predict': 300,   # 適度增加長度限制以確保完整回答
                 'top_p': 0.8,        # 控制生成文本的多樣性
                 'top_k': 30          # 限制候選詞彙數量
-                # 移除 stop 參數，讓模型自然生成完整回答
             }
         )
         
@@ -1029,13 +962,8 @@ def ask(request: AskRequest):
         
         # Extract the answer and the source documents（統一物件結構，包含 id/metadata/distance/document）
         if isinstance(chat_response, dict) and 'message' in chat_response:
-            raw_answer = chat_response['message']['content']
-            print(f"原始答案長度: {len(raw_answer)}")
-            
-            # 智能完整性檢查：確保回答以完整句子結束
-            answer = ensure_complete_response(raw_answer)
-            print(f"處理後答案長度: {len(answer)}")
-            
+            answer = chat_response['message']['content']
+            print(f"成功提取答案，長度: {len(answer)}")
         else:
             print(f"意外的回應格式: {chat_response}")
             answer = "AI 服務回應格式異常，請稍後再試。"
