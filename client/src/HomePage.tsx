@@ -193,7 +193,7 @@ const HomePage = () => {
                   fontSize: '1.5rem'
                 }}
               >
-                {t('appTitle', '資安知識畫廊')}
+                {t('appTitle', 'ADC資安情境庫')}
               </Typography>
             </Box>
 
@@ -348,10 +348,12 @@ const HomePage = () => {
             bottom: 24,
             right: 24,
             zIndex: 1000,
-            boxShadow: '0 8px 24px rgba(0,123,255,0.3)'
+            boxShadow: '0 8px 24px rgba(0,123,255,0.3)',
+            fontSize: '1.2rem',
+            fontWeight: 700
           }}
         >
-          <ChatIcon />
+          AI
         </Fab>
 
         {/* 聊天視窗 */}

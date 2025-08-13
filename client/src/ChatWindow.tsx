@@ -104,13 +104,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onClose }) => {
       <Paper
         elevation={8}
         sx={{
-          width: 400,
-          height: 500,
+          width: 800,
+          height: 600,
           display: 'flex',
           flexDirection: 'column',
           borderRadius: 3,
           overflow: 'hidden',
-          boxShadow: '0 16px 32px rgba(0,0,0,0.2)'
+          boxShadow: '0 16px 32px rgba(0,0,0,0.2)',
+          maxWidth: '90vw',
+          maxHeight: '85vh'
         }}
       >
         {/* 聊天視窗標題列 */}
